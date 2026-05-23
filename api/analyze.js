@@ -1,4 +1,4 @@
-const MISTRAL_MODEL = 'mistral-small-latest';
+const MISTRAL_MODEL = 'mistral-large-latest';
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
 
 const SYSTEM_PROMPT = `Tu es un outil d'analyse marxiste radical. On te donne un événement, une loi, une mesure ou une idée politique/économique.
