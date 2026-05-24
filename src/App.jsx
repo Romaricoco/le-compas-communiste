@@ -56,7 +56,7 @@ export default function App() {
       communist: 100 - capitalistPercentage,
       author: "Vous (Romaric)",
       date: "Aujourd'hui",
-      justification: aiResult.justification,
+      justification: aiResult.verdict,
     }, ...analyses]);
 
     setInputTitle("");
@@ -127,22 +127,29 @@ export default function App() {
 
                 <div className="space-y-2">
                   {Object.entries(CRITERIA_LABELS).map(([key, label]) => (
-                    <div key={key} className="bg-gray-950 p-3 rounded-xl flex items-center justify-between">
-                      <span className="text-xs text-gray-300">{label}</span>
-                      <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                        aiResult[key] === 'communist'
-                          ? 'bg-red-600/20 text-red-400 border border-red-700'
-                          : 'bg-blue-600/20 text-blue-400 border border-blue-700'
-                      }`}>
-                        {aiResult[key] === 'communist' ? '🔴 Commun' : '🔵 Capitaliste'}
-                      </span>
+                    <div key={key} className="bg-gray-950 p-3 rounded-xl space-y-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs text-gray-300">{label}</span>
+                        <span className={`shrink-0 text-xs font-bold px-3 py-1 rounded-full ${
+                          aiResult[key] === 'communist'
+                            ? 'bg-red-600/20 text-red-400 border border-red-700'
+                            : 'bg-blue-600/20 text-blue-400 border border-blue-700'
+                        }`}>
+                          {aiResult[key] === 'communist' ? '🔴 Commun' : '🔵 Capitaliste'}
+                        </span>
+                      </div>
+                      {aiResult.justifications?.[key] && (
+                        <p className="text-[11px] text-gray-500 italic border-l-2 border-gray-700 pl-2">
+                          {aiResult.justifications[key]}
+                        </p>
+                      )}
                     </div>
                   ))}
                 </div>
 
-                {aiResult.justification && (
+                {aiResult.verdict && (
                   <p className="text-xs text-gray-400 italic border-l-2 border-red-700 pl-3">
-                    {aiResult.justification}
+                    {aiResult.verdict}
                   </p>
                 )}
 
