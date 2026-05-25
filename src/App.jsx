@@ -30,6 +30,8 @@ function loadFlux() {
 
 export default function App() {
   const [title, setTitle] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
+  const [mode, setMode] = useState('text');
   const [loading, setLoading] = useState(false);
   const [scan, setScan] = useState(null);
   const [error, setError] = useState(null);
@@ -61,26 +63,17 @@ export default function App() {
 
   const reset = () => { setScan(null); setError(null); setPendingItem(null); };
 
-  const handleAnalyze = async (e) => {
-    e.preventDefault();
-    const t = title.trim();
-    if (!t) return;
+  const runAnalysis = async (fetchPromise, label) => {
     setError(null); setScan(null); setLoading(true);
-
     const pid = Date.now();
-    setPendingItem({ id: pid, title: t, status: 'scanning' });
-
+    setPendingItem({ id: pid, title: label, status: 'scanning' });
     try {
-      const res = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: t }),
-      });
+      const res = await fetchPromise;
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
       const result = await res.json();
       const comCount = CRITERIA.filter(c => result[c.id] === 'communist').length;
       const capPct = Math.round(((CRITERIA.length - comCount) / CRITERIA.length) * 100);
-      setScan({ result, capitalist: capPct });
+      setScan({ result, capitalist: capPct, hasTranscript: result.hasTranscript });
       setPendingItem(prev => prev ? { ...prev, status: 'ready' } : null);
     } catch (err) {
       setError(err.message || "Erreur d'analyse");
@@ -90,13 +83,37 @@ export default function App() {
     }
   };
 
+  const handleAnalyze = (e) => {
+    e.preventDefault();
+    const t = title.trim();
+    if (!t) return;
+    runAnalysis(
+      fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: t }) }),
+      t
+    );
+  };
+
+  const handleAnalyzeVideo = (e) => {
+    e.preventDefault();
+    const u = videoUrl.trim();
+    if (!u) return;
+    const label = '▶ ' + u.replace(/https?:\/\/(www\.)?/, '').slice(0, 40);
+    runAnalysis(
+      fetch('/api/analyze-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }) }),
+      label
+    );
+  };
+
   const handlePublish = () => {
     if (!scan) return;
     const id = pendingItem?.id || Date.now();
     const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    const label = mode === 'video'
+      ? ('▶ ' + videoUrl.replace(/https?:\/\/(www\.)?/, '').slice(0, 40))
+      : title.trim();
     setFlux(prev => [{
       id,
-      title: title.trim(),
+      title: label,
       capitalist: scan.capitalist,
       communist: 100 - scan.capitalist,
       author: 'Vous',
@@ -105,6 +122,7 @@ export default function App() {
     }, ...prev]);
     setNewId(id);
     setTitle('');
+    setVideoUrl('');
     setScan(null);
     setError(null);
     setPendingItem(null);
@@ -191,26 +209,47 @@ export default function App() {
               Une idée, un événement, une réforme. <b>Le compas</b> teste si elle penche vers le <span className="com-em">commun</span> ou vers le <span className="cap-em">capital</span>, axiome par axiome. Pas un jugement — un outil d'orientation.
             </p>
 
-            <form className="input-row" onSubmit={handleAnalyze} autoComplete="off">
-              <input
-                type="text"
-                required
-                maxLength={200}
-                placeholder="Ex : Nationalisation d'EDF · Pass rail · Uberisation · Réforme des retraites…"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-              />
-              <button className="scan-btn" type="submit" disabled={loading}>
-                {loading ? '⟳ Analyse…' : '▸ Analyser'}
-              </button>
-            </form>
-
-            <div className="examples">
-              <span className="lbl">essaie →</span>
-              {EXAMPLES.map(ex => (
-                <button key={ex} type="button" onClick={() => setTitle(ex)}>{ex.replace(/ .*européen/, ' rail').slice(0, 28)}</button>
-              ))}
+            <div className="mode-tabs">
+              <button className={mode === 'text' ? 'active' : ''} onClick={() => { setMode('text'); reset(); }}>✎ Texte / Idée</button>
+              <button className={mode === 'video' ? 'active' : ''} onClick={() => { setMode('video'); reset(); }}>▶ Vidéo YouTube</button>
             </div>
+
+            {mode === 'text' ? (
+              <>
+                <form className="input-row" onSubmit={handleAnalyze} autoComplete="off">
+                  <input
+                    type="text"
+                    required
+                    maxLength={200}
+                    placeholder="Ex : Nationalisation d'EDF · Pass rail · Uberisation · Réforme des retraites…"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                  />
+                  <button className="scan-btn" type="submit" disabled={loading}>
+                    {loading ? '⟳ Analyse…' : '▸ Analyser'}
+                  </button>
+                </form>
+                <div className="examples">
+                  <span className="lbl">essaie →</span>
+                  {EXAMPLES.map(ex => (
+                    <button key={ex} type="button" onClick={() => setTitle(ex)}>{ex.replace(/ .*européen/, ' rail').slice(0, 28)}</button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <form className="input-row" onSubmit={handleAnalyzeVideo} autoComplete="off">
+                <input
+                  type="url"
+                  required
+                  placeholder="https://youtube.com/watch?v=… ou youtu.be/…"
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                />
+                <button className="scan-btn" type="submit" disabled={loading}>
+                  {loading ? '⟳ Analyse…' : '▸ Analyser'}
+                </button>
+              </form>
+            )}
 
             {error && <div className="error">⚠️ {error}</div>}
 
@@ -262,6 +301,12 @@ export default function App() {
                       </div>
                     </div>
                   </div>
+
+                  {mode === 'video' && (
+                    <div className="transcript-info">
+                      {scan.hasTranscript ? '✓ Analysé via transcription' : '⚠ Pas de transcription — analysé via URL'}
+                    </div>
+                  )}
 
                   <div className="actions">
                     <button onClick={handlePublish}>▸ Publier dans le flux</button>
