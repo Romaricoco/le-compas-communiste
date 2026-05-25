@@ -35,6 +35,23 @@ export default function App() {
   const [flux, setFlux] = useState(loadFlux);
   const [newId, setNewId] = useState(null);
   const [pendingItem, setPendingItem] = useState(null);
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installed, setInstalled] = useState(false);
+
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', () => { setInstalled(true); setInstallPrompt(null); });
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setInstalled(true);
+    setInstallPrompt(null);
+  };
 
   useEffect(() => {
     try { localStorage.setItem(FLUX_STORAGE_KEY, JSON.stringify(flux)); } catch {}
@@ -115,9 +132,12 @@ export default function App() {
         <nav className="nav">
           <a href="#" className="active">Le compas</a>
         </nav>
+        {installPrompt && !installed && (
+          <button className="install-btn" onClick={handleInstall}>⬇ Installer l'app</button>
+        )}
         <div className="status">
           <span className="dot"></span>
-          Prototype v2.0 · IA active
+          {installed ? 'App installée ✓' : 'Prototype v2.0 · IA active'}
         </div>
       </header>
 
