@@ -29,57 +29,47 @@ export default function App() {
     setAiResult(null);
 
     const newPendingId = Date.now();
+    const submittedTitle = inputTitle;
     setPendingId(newPendingId);
     setAnalyses(prev => [{
       id: newPendingId,
-      title: inputTitle,
+      title: submittedTitle,
       pending: true,
       author: "Vous (Romaric)",
       date: "Aujourd'hui",
     }, ...prev]);
+    setInputTitle("");
 
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: inputTitle }),
+        body: JSON.stringify({ title: submittedTitle }),
       });
       if (!res.ok) throw new Error(`Erreur serveur: ${res.status}`);
       const data = await res.json();
+
+      const scores = Object.values(data).filter(v => v === 'capitalist' || v === 'communist');
+      const capitalistCount = scores.filter(v => v === 'capitalist').length;
+      const capitalistPercentage = Math.round((capitalistCount / scores.length) * 100);
+
+      setAnalyses(prev => prev.map(a => a.id === newPendingId ? {
+        id: newPendingId,
+        title: submittedTitle,
+        capitalist: capitalistPercentage,
+        communist: 100 - capitalistPercentage,
+        author: "Vous (Romaric)",
+        date: "Aujourd'hui",
+        justification: data.justification,
+      } : a));
       setAiResult(data);
     } catch (err) {
       setError(err.message);
-      setAnalyses(prev => prev.filter(a => a.id !== newPendingId));
-      setPendingId(null);
+      setAnalyses(prev => prev.map(a => a.id === newPendingId ? { ...a, pending: false, failed: true } : a));
     } finally {
       setLoading(false);
+      setPendingId(null);
     }
-  };
-
-  const handlePublish = () => {
-    if (!aiResult) return;
-    const scores = Object.values(aiResult).filter(v => v === 'capitalist' || v === 'communist');
-    const capitalistCount = scores.filter(v => v === 'capitalist').length;
-    const capitalistPercentage = Math.round((capitalistCount / scores.length) * 100);
-
-    const fullItem = {
-      id: pendingId || Date.now(),
-      title: inputTitle,
-      capitalist: capitalistPercentage,
-      communist: 100 - capitalistPercentage,
-      author: "Vous (Romaric)",
-      date: "Aujourd'hui",
-      justification: aiResult.justification,
-    };
-
-    setAnalyses(prev => pendingId
-      ? prev.map(a => a.id === pendingId ? fullItem : a)
-      : [fullItem, ...prev]
-    );
-
-    setPendingId(null);
-    setInputTitle("");
-    setAiResult(null);
   };
 
   return (
@@ -165,12 +155,7 @@ export default function App() {
                   </p>
                 )}
 
-                <button
-                  onClick={handlePublish}
-                  className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all"
-                >
-                  Publier dans le Flux 🚀
-                </button>
+                <p className="text-xs text-green-500 font-semibold">✅ Publié automatiquement dans le flux</p>
               </div>
             )}
           </div>
@@ -184,7 +169,7 @@ export default function App() {
 
             <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
               {analyses.map((item) => (
-                <div key={item.id} className={`bg-gray-950 p-4 rounded-xl border space-y-3 transition-all duration-300 ${item.pending ? 'border-purple-700/50 opacity-75' : 'border-gray-850'}`}>
+                <div key={item.id} className={`bg-gray-950 p-4 rounded-xl border space-y-3 transition-all duration-300 ${item.pending ? 'border-purple-700/50 opacity-75' : item.failed ? 'border-red-900/50 opacity-60' : 'border-gray-850'}`}>
                   <div className="flex justify-between items-start gap-2">
                     <h3 className="text-sm font-bold text-white line-clamp-2">{item.title}</h3>
                     <span className="text-[10px] text-gray-500 whitespace-nowrap bg-gray-900 px-2 py-0.5 rounded">
@@ -197,6 +182,8 @@ export default function App() {
                       <span className="inline-block w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
                       Analyse IA en cours…
                     </div>
+                  ) : item.failed ? (
+                    <div className="text-xs text-red-500">⚠️ Analyse échouée</div>
                   ) : (
                     <>
                       <div className="space-y-1">
