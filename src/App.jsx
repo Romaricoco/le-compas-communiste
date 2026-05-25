@@ -1,221 +1,283 @@
-import React, { useState } from 'react';
+import { useState, useEffect } from 'react';
+import './App.css';
 
-const INITIAL_ANALYSES = [
-  { id: 1, title: "Réforme des retraites 2023", capitalist: 80, communist: 20, author: "Militant45", date: "20 mai 2026", justification: "Allongement du temps de travail au profit du capital." },
-  { id: 2, title: "Création de la Sécurité Sociale (1945)", capitalist: 10, communist: 90, author: "Clara_Z", date: "20 mai 2026", justification: "Mutualisation des risques, gestion collective." },
-  { id: 3, title: "Privatisation des autoroutes", capitalist: 100, communist: 0, author: "Jean_LePeuple", date: "19 mai 2026", justification: "Transfert de bien public vers le profit privé." }
+const CRITERIA = [
+  { id: 'abolition_propriete_privee', n: 'I',   short: 'Propriété',  long: 'Abolition de la propriété privée des moyens de production' },
+  { id: 'egalite_travail',            n: 'II',  short: 'Hiérarchie', long: 'Fin de la hiérarchie entre travail manuel et intellectuel' },
+  { id: 'dissolution_etat',           n: 'III', short: 'État',       long: "Dissolution des États au profit de la délibération locale" },
+  { id: 'horizon_mondial',            n: 'IV',  short: 'Monde',      long: 'Le Monde comme seul horizon politique' },
 ];
 
-const CRITERIA_LABELS = {
-  abolition_propriete_privee: "Abolition de la propriété privée des moyens de production",
-  egalite_travail: "Fin de la hiérarchie entre travail manuel et intellectuel",
-  dissolution_etat: "Dissolution des États au profit de la délibération locale",
-  horizon_mondial: "Le Monde comme seul horizon politique",
-};
+const EXAMPLES = [
+  "Nationalisation d'EDF",
+  "Pass rail européen",
+  "Uberisation du travail",
+  "Privatisation de La Poste",
+  "Sécurité sociale (1945)",
+];
+
+const FLUX_STORAGE_KEY = 'compas:flux:v1';
+
+function loadFlux() {
+  try {
+    const raw = localStorage.getItem(FLUX_STORAGE_KEY);
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
 
 export default function App() {
-  const [inputTitle, setInputTitle] = useState("");
-  const [analyses, setAnalyses] = useState(INITIAL_ANALYSES);
+  const [title, setTitle] = useState('');
   const [loading, setLoading] = useState(false);
+  const [scan, setScan] = useState(null);
   const [error, setError] = useState(null);
-  const [aiResult, setAiResult] = useState(null);
-  const [pendingId, setPendingId] = useState(null);
+  const [flux, setFlux] = useState(loadFlux);
+  const [newId, setNewId] = useState(null);
+  const [pendingItem, setPendingItem] = useState(null);
+
+  useEffect(() => {
+    try { localStorage.setItem(FLUX_STORAGE_KEY, JSON.stringify(flux)); } catch {}
+  }, [flux]);
+
+  const reset = () => { setScan(null); setError(null); setPendingItem(null); };
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
-    if (!inputTitle.trim()) return;
-    setLoading(true);
-    setError(null);
-    setAiResult(null);
+    const t = title.trim();
+    if (!t) return;
+    setError(null); setScan(null); setLoading(true);
 
-    const newPendingId = Date.now();
-    const submittedTitle = inputTitle;
-    setPendingId(newPendingId);
-    setAnalyses(prev => [{
-      id: newPendingId,
-      title: submittedTitle,
-      pending: true,
-      author: "Vous (Romaric)",
-      date: "Aujourd'hui",
-    }, ...prev]);
-    setInputTitle("");
+    const pid = Date.now();
+    setPendingItem({ id: pid, title: t, status: 'scanning' });
 
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: submittedTitle }),
+        body: JSON.stringify({ title: t }),
       });
-      if (!res.ok) throw new Error(`Erreur serveur: ${res.status}`);
-      const data = await res.json();
-
-      const scores = Object.values(data).filter(v => v === 'capitalist' || v === 'communist');
-      const capitalistCount = scores.filter(v => v === 'capitalist').length;
-      const capitalistPercentage = Math.round((capitalistCount / scores.length) * 100);
-
-      setAnalyses(prev => prev.map(a => a.id === newPendingId ? {
-        id: newPendingId,
-        title: submittedTitle,
-        capitalist: capitalistPercentage,
-        communist: 100 - capitalistPercentage,
-        author: "Vous (Romaric)",
-        date: "Aujourd'hui",
-        justification: data.justification,
-      } : a));
-      setAiResult(data);
+      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
+      const result = await res.json();
+      const comCount = CRITERIA.filter(c => result[c.id] === 'communist').length;
+      const capPct = Math.round(((CRITERIA.length - comCount) / CRITERIA.length) * 100);
+      setScan({ result, capitalist: capPct });
+      setPendingItem(prev => prev ? { ...prev, status: 'ready' } : null);
     } catch (err) {
-      setError(err.message);
-      setAnalyses(prev => prev.map(a => a.id === newPendingId ? { ...a, pending: false, failed: true } : a));
+      setError(err.message || "Erreur d'analyse");
+      setPendingItem(prev => prev ? { ...prev, status: 'error' } : null);
     } finally {
       setLoading(false);
-      setPendingId(null);
     }
   };
 
+  const handlePublish = () => {
+    if (!scan) return;
+    const id = pendingItem?.id || Date.now();
+    const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+    setFlux(prev => [{
+      id,
+      title: title.trim(),
+      capitalist: scan.capitalist,
+      communist: 100 - scan.capitalist,
+      author: 'Vous',
+      date: today,
+      justification: scan.result.justification,
+    }, ...prev]);
+    setNewId(id);
+    setTitle('');
+    setScan(null);
+    setError(null);
+    setPendingItem(null);
+  };
+
+  const removeFlux = (id) => setFlux(prev => prev.filter(it => it.id !== id));
+
+  const state = loading ? 'scanning' : scan ? 'done' : 'idle';
+  const status = state === 'scanning'
+    ? '// scan en cours…'
+    : state === 'done'
+      ? `// verdict : ${scan.capitalist < 50 ? 'PENCHE COMMUN' : scan.capitalist > 50 ? 'PENCHE CAPITAL' : 'ÉQUILIBRÉ'}`
+      : '// en attente d\'une idée';
+
+  const fluxCount = flux.length + (pendingItem ? 1 : 0);
+
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
-      <header className="border-b border-gray-800 bg-gray-900 sticky top-0 z-50 py-4">
-        <div className="max-w-5xl mx-auto px-4 flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <span className="text-3xl">🧭</span>
-            <div>
-              <h1 className="text-xl font-black tracking-wider text-white uppercase">Le Compas Communiste</h1>
-              <p className="text-xs text-red-500 font-bold tracking-widest">DISTINGUER POUR AGIR</p>
-            </div>
+    <>
+      <header className="topbar">
+        <div className="brand">
+          <div className="mark">★</div>
+          <div>
+            <h1>Le Compas Communiste</h1>
+            <div className="tag">// <b>Distinguer pour agir</b> · scan via IA · MMXXVI</div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 bg-gray-800 px-3 py-1 rounded-full text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-            Prototype V2.0 — IA Active
-          </div>
+        </div>
+        <nav className="nav">
+          <a href="#" className="active">Le compas</a>
+        </nav>
+        <div className="status">
+          <span className="dot"></span>
+          Prototype v2.0 · IA active
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-2 space-y-6">
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-750 shadow-xl">
-            <h2 className="text-xl font-bold mb-2 text-white flex items-center gap-2">
-              <span>🤖</span> Analyser avec l'IA
+      <main>
+        <section className="scanner">
+          <div className="scanner-head">
+            <div className="num">·· Boussole n° <b>01</b> ·· Scan ··</div>
+            <div className="meta">4 aiguilles · réponse en ~6 sec</div>
+          </div>
+          <div className="scanner-body">
+            <div className="stamp">Libre<br/>diffusion<br/>MMXXVI</div>
+
+            <h2>
+              Qu'est-ce que tu passes au <span className="hl">compas</span><br/>
+              aujourd'hui&nbsp;?
             </h2>
-            <p className="text-sm text-gray-400 mb-6">
-              L'IA analyse automatiquement l'événement selon les 3 piliers marxistes.
+            <p className="sub">
+              Une idée, un événement, une réforme. <b>Le compas</b> teste si elle penche vers le <span className="com-em">commun</span> ou vers le <span className="cap-em">capital</span>, axiome par axiome. Pas un jugement — un outil d'orientation.
             </p>
 
-            <form onSubmit={handleAnalyze} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">
-                  Événement ou idée à scanner
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="w-full bg-gray-950 border border-gray-700 rounded-xl p-3 text-white focus:outline-none focus:border-red-500 transition"
-                  placeholder="Ex: La nationalisation d'EDF, Le pass rail, Uberisation..."
-                  value={inputTitle}
-                  onChange={(e) => setInputTitle(e.target.value)}
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-500 hover:to-purple-600 disabled:opacity-50 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition-all"
-              >
-                {loading ? '🔄 Analyse en cours...' : '🤖 Analyser avec l\'IA'}
+            <form className="input-row" onSubmit={handleAnalyze} autoComplete="off">
+              <input
+                type="text"
+                required
+                maxLength={200}
+                placeholder="Ex : Nationalisation d'EDF · Pass rail · Uberisation · Réforme des retraites…"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+              <button className="scan-btn" type="submit" disabled={loading}>
+                {loading ? '⟳ Analyse…' : '▸ Analyser'}
               </button>
             </form>
 
-            {error && (
-              <div className="mt-4 bg-red-950 border border-red-700 rounded-xl p-4 text-sm text-red-300">
-                ⚠️ {error}
-              </div>
-            )}
-
-            {aiResult && (
-              <div className="mt-6 space-y-4">
-                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Résultat de l'analyse IA</h3>
-
-                <div className="space-y-2">
-                  {Object.entries(CRITERIA_LABELS).map(([key, label]) => (
-                    <div key={key} className="bg-gray-950 p-3 rounded-xl flex items-center justify-between">
-                      <span className="text-xs text-gray-300">{label}</span>
-                      <span className={`text-xs font-bold px-3 py-1 rounded-full ${
-                        aiResult[key] === 'communist'
-                          ? 'bg-red-600/20 text-red-400 border border-red-700'
-                          : 'bg-blue-600/20 text-blue-400 border border-blue-700'
-                      }`}>
-                        {aiResult[key] === 'communist' ? '🔴 Commun' : '🔵 Capitaliste'}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                {aiResult.justification && (
-                  <p className="text-xs text-gray-400 italic border-l-2 border-red-700 pl-3">
-                    {aiResult.justification}
-                  </p>
-                )}
-
-                <p className="text-xs text-green-500 font-semibold">✅ Publié automatiquement dans le flux</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          <div className="bg-gray-800 p-6 rounded-2xl border border-gray-750 shadow-xl">
-            <h2 className="text-xl font-bold mb-4 text-white flex items-center gap-2">
-              <span>📊</span> Flux Global Communautaire
-            </h2>
-
-            <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
-              {analyses.map((item) => (
-                <div key={item.id} className={`bg-gray-950 p-4 rounded-xl border space-y-3 transition-all duration-300 ${item.pending ? 'border-purple-700/50 opacity-75' : item.failed ? 'border-red-900/50 opacity-60' : 'border-gray-850'}`}>
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="text-sm font-bold text-white line-clamp-2">{item.title}</h3>
-                    <span className="text-[10px] text-gray-500 whitespace-nowrap bg-gray-900 px-2 py-0.5 rounded">
-                      {item.date}
-                    </span>
-                  </div>
-
-                  {item.pending ? (
-                    <div className="flex items-center gap-2 text-xs text-purple-400">
-                      <span className="inline-block w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-                      Analyse IA en cours…
-                    </div>
-                  ) : item.failed ? (
-                    <div className="text-xs text-red-500">⚠️ Analyse échouée</div>
-                  ) : (
-                    <>
-                      <div className="space-y-1">
-                        <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden flex">
-                          <div className="bg-blue-600 h-full transition-all duration-500" style={{ width: `${item.capitalist}%` }} />
-                          <div className="bg-red-600 h-full transition-all duration-500" style={{ width: `${item.communist}%` }} />
-                        </div>
-                        <div className="flex justify-between text-[10px] font-mono font-semibold">
-                          <span className="text-blue-400">Capitalisme : {item.capitalist}%</span>
-                          <span className="text-red-400">Commun : {item.communist}%</span>
-                        </div>
-                      </div>
-
-                      {item.justification && (
-                        <p className="text-[10px] text-gray-500 italic line-clamp-2">{item.justification}</p>
-                      )}
-                    </>
-                  )}
-
-                  <div className="text-[10px] text-gray-500 flex justify-between items-center pt-1 border-t border-gray-900">
-                    <span>Par : <strong className="text-gray-400">{item.author}</strong></span>
-                  </div>
-                </div>
+            <div className="examples">
+              <span className="lbl">essaie →</span>
+              {EXAMPLES.map(ex => (
+                <button key={ex} type="button" onClick={() => setTitle(ex)}>{ex.replace(/ .*européen/, ' rail').slice(0, 28)}</button>
               ))}
             </div>
+
+            {error && <div className="error">⚠️ {error}</div>}
+
+            <div className="needles">
+              <div className="needles-head">
+                <span className="t">Les 4 aiguilles</span>
+                <hr/>
+                <span className="n">{status}</span>
+              </div>
+              <div className="needles-grid">
+                {CRITERIA.map(c => {
+                  const cls =
+                    state === 'scanning' ? 'needle scanning' :
+                    state === 'done'     ? `needle ${scan.result[c.id]}` :
+                                            'needle';
+                  const verdictLabel =
+                    state === 'scanning' ? '· · ·' :
+                    state === 'done'
+                      ? (scan.result[c.id] === 'communist' ? '● Commun' : '● Capital')
+                      : 'à scanner';
+                  return (
+                    <div key={c.id} className={cls}>
+                      <div className="id">{c.n}</div>
+                      <div className="lbl"><b>{c.short}</b>{c.long}</div>
+                      <div className="verdict">{verdictLabel}</div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {scan && (
+                <>
+                  <div className="justification">
+                    <span className="lbl">// Justification</span>
+                    {scan.result.justification || '—'}
+                  </div>
+
+                  <div className="summary">
+                    <div className="needles-head" style={{ marginTop: 8, marginBottom: 8 }}>
+                      <span className="t" style={{ fontSize: 13 }}>Résultat global</span>
+                      <hr/>
+                    </div>
+                    <div className="summary-bar">
+                      <div className="b-cap" style={{ width: `${scan.capitalist}%` }}>
+                        {scan.capitalist}%&nbsp;Capital
+                      </div>
+                      <div className="b-com" style={{ width: `${100 - scan.capitalist}%` }}>
+                        Commun&nbsp;{100 - scan.capitalist}%
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="actions">
+                    <button onClick={handlePublish}>▸ Publier dans le flux</button>
+                    <button className="ghost" onClick={reset}>↺ Scanner autre chose</button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
-        </div>
+        </section>
+
+        <aside className="flux">
+          <div className="flux-head">
+            <h3>▤ Flux communautaire</h3>
+            <span className="count">{fluxCount} analyse{fluxCount > 1 ? 's' : ''}</span>
+          </div>
+          <div className="flux-list">
+            {pendingItem && (
+              <article className={`card pending-card ${pendingItem.status}`}>
+                <div className="row1">
+                  <div className="title">{pendingItem.title}</div>
+                  <div className="date">à l'instant</div>
+                </div>
+                <div className="pending-status">
+                  {pendingItem.status === 'scanning' && '⟳ Analyse en cours…'}
+                  {pendingItem.status === 'ready'    && '✓ Prête — publie pour enregistrer'}
+                  {pendingItem.status === 'error'    && '⚠ Analyse échouée'}
+                </div>
+              </article>
+            )}
+            {flux.length === 0 && !pendingItem ? (
+              <div className="flux-empty">
+                <div className="empty-icon">▤</div>
+                <div className="empty-title">Aucun scan encore.</div>
+                <div className="empty-sub">Tes analyses publiées s'empileront ici — local, sur ta machine.</div>
+              </div>
+            ) : flux.map(item => (
+              <article key={item.id} className={'card' + (item.id === newId ? ' new' : '')}>
+                <div className="row1">
+                  <div className="title">{item.title}</div>
+                  <div className="date">{item.date}</div>
+                </div>
+                <div className="bar">
+                  <div className="cap" style={{ width: `${item.capitalist}%` }}></div>
+                  <div className="com" style={{ width: `${item.communist}%` }}></div>
+                </div>
+                <div className="pcts">
+                  <span className="cap-l">▲ Capital · {item.capitalist}%</span>
+                  <span className="com-l">{item.communist}% · Commun ▲</span>
+                </div>
+                {item.justification && (
+                  <div className="just">«&nbsp;{item.justification}&nbsp;»</div>
+                )}
+                <div className="row-foot">
+                  <span className="author">par <b>{item.author}</b></span>
+                  <button className="del" onClick={() => removeFlux(item.id)} title="Retirer du flux">✕</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </aside>
       </main>
 
-      <footer className="max-w-5xl mx-auto px-4 py-8 mt-12 border-t border-gray-850 text-center text-xs text-gray-500">
-        <p>"On sauve le monde, une ligne de code à la fois." — Développé pour Romaric.</p>
+      <footer className="foot">
+        <div className="quote">«&nbsp;On sauve le monde, <b>une ligne de code</b> à la fois.&nbsp;»</div>
+        <div className="links">
+          <span>GitHub</span><span>RSS</span><span>compas-communiste.fr</span>
+        </div>
       </footer>
-    </div>
+    </>
   );
 }
