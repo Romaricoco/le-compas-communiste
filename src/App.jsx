@@ -19,6 +19,7 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [aiResult, setAiResult] = useState(null);
+  const [pendingId, setPendingId] = useState(null);
 
   const handleAnalyze = async (e) => {
     e.preventDefault();
@@ -26,6 +27,16 @@ export default function App() {
     setLoading(true);
     setError(null);
     setAiResult(null);
+
+    const newPendingId = Date.now();
+    setPendingId(newPendingId);
+    setAnalyses(prev => [{
+      id: newPendingId,
+      title: inputTitle,
+      pending: true,
+      author: "Vous (Romaric)",
+      date: "Aujourd'hui",
+    }, ...prev]);
 
     try {
       const res = await fetch('/api/analyze', {
@@ -38,6 +49,8 @@ export default function App() {
       setAiResult(data);
     } catch (err) {
       setError(err.message);
+      setAnalyses(prev => prev.filter(a => a.id !== newPendingId));
+      setPendingId(null);
     } finally {
       setLoading(false);
     }
@@ -49,16 +62,22 @@ export default function App() {
     const capitalistCount = scores.filter(v => v === 'capitalist').length;
     const capitalistPercentage = Math.round((capitalistCount / scores.length) * 100);
 
-    setAnalyses([{
-      id: Date.now(),
+    const fullItem = {
+      id: pendingId || Date.now(),
       title: inputTitle,
       capitalist: capitalistPercentage,
       communist: 100 - capitalistPercentage,
       author: "Vous (Romaric)",
       date: "Aujourd'hui",
       justification: aiResult.justification,
-    }, ...analyses]);
+    };
 
+    setAnalyses(prev => pendingId
+      ? prev.map(a => a.id === pendingId ? fullItem : a)
+      : [fullItem, ...prev]
+    );
+
+    setPendingId(null);
     setInputTitle("");
     setAiResult(null);
   };
@@ -165,7 +184,7 @@ export default function App() {
 
             <div className="space-y-4 max-h-[500px] overflow-y-auto pr-1">
               {analyses.map((item) => (
-                <div key={item.id} className="bg-gray-950 p-4 rounded-xl border border-gray-850 space-y-3">
+                <div key={item.id} className={`bg-gray-950 p-4 rounded-xl border space-y-3 transition-all duration-300 ${item.pending ? 'border-purple-700/50 opacity-75' : 'border-gray-850'}`}>
                   <div className="flex justify-between items-start gap-2">
                     <h3 className="text-sm font-bold text-white line-clamp-2">{item.title}</h3>
                     <span className="text-[10px] text-gray-500 whitespace-nowrap bg-gray-900 px-2 py-0.5 rounded">
@@ -173,19 +192,28 @@ export default function App() {
                     </span>
                   </div>
 
-                  <div className="space-y-1">
-                    <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden flex">
-                      <div className="bg-blue-600 h-full transition-all duration-500" style={{ width: `${item.capitalist}%` }} />
-                      <div className="bg-red-600 h-full transition-all duration-500" style={{ width: `${item.communist}%` }} />
+                  {item.pending ? (
+                    <div className="flex items-center gap-2 text-xs text-purple-400">
+                      <span className="inline-block w-3 h-3 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+                      Analyse IA en cours…
                     </div>
-                    <div className="flex justify-between text-[10px] font-mono font-semibold">
-                      <span className="text-blue-400">Capitalisme : {item.capitalist}%</span>
-                      <span className="text-red-400">Commun : {item.communist}%</span>
-                    </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="space-y-1">
+                        <div className="w-full bg-gray-800 h-3 rounded-full overflow-hidden flex">
+                          <div className="bg-blue-600 h-full transition-all duration-500" style={{ width: `${item.capitalist}%` }} />
+                          <div className="bg-red-600 h-full transition-all duration-500" style={{ width: `${item.communist}%` }} />
+                        </div>
+                        <div className="flex justify-between text-[10px] font-mono font-semibold">
+                          <span className="text-blue-400">Capitalisme : {item.capitalist}%</span>
+                          <span className="text-red-400">Commun : {item.communist}%</span>
+                        </div>
+                      </div>
 
-                  {item.justification && (
-                    <p className="text-[10px] text-gray-500 italic line-clamp-2">{item.justification}</p>
+                      {item.justification && (
+                        <p className="text-[10px] text-gray-500 italic line-clamp-2">{item.justification}</p>
+                      )}
+                    </>
                   )}
 
                   <div className="text-[10px] text-gray-500 flex justify-between items-center pt-1 border-t border-gray-900">
