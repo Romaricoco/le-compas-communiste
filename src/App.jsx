@@ -41,11 +41,18 @@ export default function App() {
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installed, setInstalled] = useState(false);
   const [view, setView] = useState('compas');
+  const [showIosBanner, setShowIosBanner] = useState(false);
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setInstallPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
     window.addEventListener('appinstalled', () => { setInstalled(true); setInstallPrompt(null); });
+
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    const dismissed = sessionStorage.getItem('ios-banner-dismissed');
+    if (isIos && !isStandalone && !dismissed) setShowIosBanner(true);
+
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
@@ -55,6 +62,11 @@ export default function App() {
     const { outcome } = await installPrompt.userChoice;
     if (outcome === 'accepted') setInstalled(true);
     setInstallPrompt(null);
+  };
+
+  const dismissIosBanner = () => {
+    sessionStorage.setItem('ios-banner-dismissed', '1');
+    setShowIosBanner(false);
   };
 
   useEffect(() => {
@@ -161,6 +173,13 @@ export default function App() {
           {installed ? 'App installée ✓' : 'Prototype v2.0 · IA active'}
         </div>
       </header>
+
+      {showIosBanner && (
+        <div className="ios-banner">
+          <span>Pour installer l'app : appuie sur <b>⎋ Partager</b> puis <b>« Sur l'écran d'accueil »</b></span>
+          <button onClick={dismissIosBanner}>✕</button>
+        </div>
+      )}
 
       {view === 'jeu' && (
         <main className="game-main">

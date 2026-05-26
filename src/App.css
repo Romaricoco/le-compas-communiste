@@ -68,6 +68,20 @@ input, textarea { font-family: inherit; }
   font-size: 10.5px; font-family: var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase;
 }
 .status .dot { width: 7px; height: 7px; background: #19c37d; border-radius: 50%; animation: cc-pulse 1.6s ease-in-out infinite; }
+.ios-banner {
+  background: var(--ink); color: var(--paper);
+  border-bottom: 3px solid var(--red);
+  padding: 10px 20px;
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  font-family: var(--font-ui); font-size: 12px; line-height: 1.5;
+}
+.ios-banner b { color: var(--red-bright); }
+.ios-banner button {
+  background: transparent; border: 1px solid var(--paper-deep);
+  color: var(--paper-deep); width: 24px; height: 24px;
+  padding: 0; font-size: 13px; flex-shrink: 0;
+}
+
 .install-btn {
   background: var(--red); color: var(--paper); border: 0;
   padding: 7px 14px; font-family: var(--font-head); font-weight: 700;
