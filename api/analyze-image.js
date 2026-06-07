@@ -1,6 +1,4 @@
-const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
-
-const SYSTEM_PROMPT = `Tu es un outil d'analyse marxiste rigoureux et historiquement informé. On te donne un événement, une loi, une mesure ou une idée politique/économique.
+const SYSTEM_PROMPT = `Tu es un outil d'analyse marxiste rigoureux et historiquement informé. On te donne une image à contenu politique, économique ou idéologique.
 Tu dois l'évaluer selon 4 critères et répondre "communist" ou "capitalist" pour chacun.
 
 == DÉFINITIONS FERMES — à appliquer sans exception ==
@@ -9,14 +7,14 @@ PROPRIÉTÉ COLLECTIVE ÉTATIQUE = COMMUNIST.
 Dans la tradition marxiste (Marx, Engels, Lénine, Mao), la propriété étatique des moyens de production est une forme légitime et communiste de propriété collective dans la phase de transition. Toute nationalisation va dans le sens communist par rapport à la propriété privée capitaliste.
 
 ÉTAT CENTRALISÉ AU SERVICE DES TRAVAILLEURS = COMMUNIST.
-Un État ou un parti fort qui défend les intérêts de la classe ouvrière et s'oppose au capital privé est "communist". La centralisation en elle-même n'est pas un critère — l'orientation de classe l'est.
+Un État ou un parti fort qui défend les intérêts de la classe ouvrière est "communist". La centralisation n'est capitaliste que si elle sert les intérêts de la bourgeoisie.
 
 COMPARAISON PAR RAPPORT AU STATU QUO CAPITALISTE.
-La comparaison se fait TOUJOURS par rapport à la propriété privée capitaliste, jamais par rapport à un idéal communiste parfait. Ne pas invalider une mesure au motif qu'elle n'est pas "suffisamment" communiste.
+La comparaison se fait TOUJOURS par rapport à la propriété privée capitaliste. Ne pas invalider une mesure au motif qu'elle n'est pas "suffisamment" communiste.
 
-INTERDIT ABSOLU : n'utilise jamais "stalinien", "bureaucratique", "nostalgique" comme jugements négatifs. Ces termes sont des étiquettes polémiques, pas des analyses marxistes.
+INTERDIT ABSOLU : n'utilise jamais "stalinien", "bureaucratique", "nostalgique" comme jugements négatifs dans la justification.
 
-TRADITIONS TOUTES ÉGALEMENT COMMUNISTES : marxisme-léninisme, maoïsme, trotskisme, communisme de conseil, eurocommunisme. Ne hiérarchise pas ces traditions.
+POUR LES IMAGES : analyse le contenu idéologique réel visible (affiches, slogans, symboles, contexte). N'infère jamais une position idéologique à partir de l'apparence physique des personnes.
 
 == LES 4 CRITÈRES ==
 
@@ -24,12 +22,16 @@ TRADITIONS TOUTES ÉGALEMENT COMMUNISTES : marxisme-léninisme, maoïsme, trotsk
 
 2. egalite_travail : L'élément réduit-il l'exploitation du travail et les inégalités entre travailleurs ? Lutte contre l'exploitation = "communist". Maintien des rapports d'exploitation = "capitalist".
 
-3. rapport_etat_capital : L'État, le parti ou l'institution en jeu sert-il les travailleurs et s'oppose-t-il au capital privé ("communist") ou protège-t-il les intérêts de la bourgeoisie et du capital financier ("capitalist") ?
+3. rapport_etat_capital : L'État, le parti ou l'institution en jeu sert-il les travailleurs et s'oppose-t-il au capital privé ("communist") ou protège-t-il les intérêts de la bourgeoisie ("capitalist") ?
 
-4. horizon_mondial : L'élément s'inscrit-il dans la solidarité internationale des travailleurs et peuples opprimés ("communist") ou défend-il des intérêts nationaux/communautaires au détriment de cette solidarité ("capitalist") ?
+4. horizon_mondial : L'élément s'inscrit-il dans la solidarité internationale des travailleurs et peuples opprimés ("communist") ou défend-il des intérêts nationaux étroits ("capitalist") ?
 
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans explication :
-{"abolition_propriete_privee":"capitalist|communist","egalite_travail":"capitalist|communist","rapport_etat_capital":"capitalist|communist","horizon_mondial":"capitalist|communist","justification":"une phrase analytique précise, sans étiquette péjorative"}`;
+{"abolition_propriete_privee":"capitalist|communist","egalite_travail":"capitalist|communist","rapport_etat_capital":"capitalist|communist","horizon_mondial":"capitalist|communist","justification":"une phrase analytique précise fondée sur le contenu visible, sans étiquette péjorative"}`;
+
+export const config = {
+  api: { bodyParser: { sizeLimit: '20mb' } },
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -39,21 +41,27 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
 
-  const { title } = req.body;
-  if (!title) return res.status(400).json({ error: 'Titre manquant' });
+  const { imageBase64, mimeType } = req.body;
+  if (!imageBase64) return res.status(400).json({ error: 'Image manquante' });
 
   const apiKey = process.env.MISTRAL_API_KEY;
   if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
 
   try {
-    const response = await fetch(MISTRAL_URL, {
+    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: 'mistral-large-latest',
+        model: 'pixtral-12b-2409',
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Analyse : ${title}` },
+          {
+            role: 'user',
+            content: [
+              { type: 'image_url', image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}` } },
+              { type: 'text', text: 'Analyse le contenu politique et idéologique de cette image selon les 4 critères marxistes.' },
+            ],
+          },
         ],
         temperature: 0.2,
         response_format: { type: 'json_object' },
