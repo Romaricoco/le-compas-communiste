@@ -292,12 +292,12 @@ export default function App() {
                       : 'à scanner';
                   return (
                     <div key={c.id} className={cls}>
-                      <div className="id">
-                        <div className="needle-icon">{CRITERIA_ICONS[c.id]}</div>
-                        <span>{c.n}</span>
+                      <div className="needle-art">{CRITERIA_ICONS[c.id]}</div>
+                      <div className="needle-content">
+                        <div className="needle-num">{c.n}</div>
+                        <div className="lbl"><b>{c.short}</b>{c.long}</div>
+                        <div className="verdict">{verdictLabel}</div>
                       </div>
-                      <div className="lbl"><b>{c.short}</b>{c.long}</div>
-                      <div className="verdict">{verdictLabel}</div>
                     </div>
                   );
                 })}
