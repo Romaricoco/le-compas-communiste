@@ -55,7 +55,7 @@ export default async function handler(req, res) {
           { role: 'system', content: SYSTEM_PROMPT },
           { role: 'user', content: `Analyse : ${title}` },
         ],
-        temperature: 0.2,
+        temperature: 0.4,
         response_format: { type: 'json_object' },
       }),
     });

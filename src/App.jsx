@@ -49,10 +49,11 @@ function extractVideoFrames(file, numFrames = 4) {
   });
 }
 
-const INITIAL_ANALYSES = [
-  { id: 1, title: "Réforme des retraites 2023", capitalist: 80, communist: 20, author: "Militant45", date: "20 mai 2026", justification: "Allongement du temps de travail au profit du capital." },
-  { id: 2, title: "Création de la Sécurité Sociale (1945)", capitalist: 10, communist: 90, author: "Clara_Z", date: "20 mai 2026", justification: "Mutualisation des risques, gestion collective." },
-  { id: 3, title: "Privatisation des autoroutes", capitalist: 100, communist: 0, author: "Jean_LePeuple", date: "19 mai 2026", justification: "Transfert de bien public vers le profit privé." }
+const CRITERIA = [
+  { id: 'abolition_propriete_privee', n: 'I',   short: 'Propriété',  long: 'Abolition de la propriété privée car la propriété privée protège les riches et maintient les inégalités !' },
+  { id: 'egalite_travail',            n: 'II',  short: 'Hiérarchie', long: 'Fin de la hiérarchie entre travail manuel et intellectuel' },
+  { id: 'dissolution_etat',           n: 'III', short: 'État',       long: "Dissolution des États et des partis au profit de la délibération locale libre et égalitaire" },
+  { id: 'horizon_mondial',            n: 'IV',  short: 'Monde',      long: "Le Monde comme seul horizon politique car il n'y a qu'un seul Monde !" },
 ];
 
 const CRITERIA_LABELS = {
@@ -179,6 +180,37 @@ export default function App() {
     setError(null);
     setAiResult(null);
 
+    const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    const isStandalone = window.navigator.standalone === true;
+    const dismissed = sessionStorage.getItem('ios-banner-dismissed');
+    if (isIos && !isStandalone && !dismissed) setShowIosBanner(true);
+
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  const handleInstall = async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const { outcome } = await installPrompt.userChoice;
+    if (outcome === 'accepted') setInstalled(true);
+    setInstallPrompt(null);
+  };
+
+  const dismissIosBanner = () => {
+    sessionStorage.setItem('ios-banner-dismissed', '1');
+    setShowIosBanner(false);
+  };
+
+  useEffect(() => {
+    try { localStorage.setItem(FLUX_STORAGE_KEY, JSON.stringify(flux)); } catch {}
+  }, [flux]);
+
+  const reset = () => { setScan(null); setError(null); setPendingItem(null); };
+
+  const runAnalysis = async (fetchPromise, label) => {
+    setError(null); setScan(null); setLoading(true);
+    const pid = Date.now();
+    setPendingItem({ id: pid, title: label, status: 'scanning' });
     try {
       if (mode === 'text') {
         if (!inputTitle.trim()) return;
@@ -219,7 +251,8 @@ export default function App() {
         setAiResult(await res.json());
       }
     } catch (err) {
-      setError(err.message);
+      setError(err.message || "Erreur d'analyse");
+      setPendingItem(prev => prev ? { ...prev, status: 'error' } : null);
     } finally {
       setLoading(false);
       setLoadingMsg('');
@@ -297,6 +330,17 @@ export default function App() {
             <div style={s.pulseDot} />
             Prototype V2.0 — IA Active
           </div>
+        </div>
+        <nav className="nav">
+          <a href="#" className={view === 'compas' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('compas'); }}>Le compas</a>
+          <a href="#" className={view === 'jeu' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('jeu'); }}>★ Le Jeu</a>
+        </nav>
+        {installPrompt && !installed && (
+          <button className="install-btn" onClick={handleInstall}>⬇ Installer l'app</button>
+        )}
+        <div className="status">
+          <span className="dot"></span>
+          {installed ? 'App installée ✓' : 'Prototype v2.0 · IA active'}
         </div>
       </header>
       <hr style={s.redLine} />
@@ -496,6 +540,6 @@ export default function App() {
       <footer style={s.footer}>
         "On sauve le monde, une ligne de code à la fois." — Développé pour Romaric.
       </footer>
-    </div>
+    </>
   );
 }
