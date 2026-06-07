@@ -1,7 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Game from './Game.jsx';
 import { CRITERIA_ICONS } from './CriteriaIcons.jsx';
+
+function resizeImage(file, maxWidth = 800) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const scale = Math.min(1, maxWidth / img.width);
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      resolve({ base64: canvas.toDataURL('image/jpeg', 0.8).split(',')[1], mimeType: 'image/jpeg' });
+    };
+    img.src = url;
+  });
+}
 
 const CRITERIA = [
   { id: 'abolition_propriete_privee', n: 'I',   short: 'Propriété',  long: 'Abolition de la propriété privée car la propriété privée protège les riches et maintient les inégalités !' },
@@ -33,6 +50,9 @@ export default function App() {
   const [title, setTitle] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
   const [mode, setMode] = useState('text');
+  const [mediaFile, setMediaFile] = useState(null);
+  const [mediaPreview, setMediaPreview] = useState(null);
+  const fileRef = useRef();
   const [loading, setLoading] = useState(false);
   const [scan, setScan] = useState(null);
   const [error, setError] = useState(null);
@@ -112,7 +132,27 @@ export default function App() {
     if (!u) return;
     const label = '▶ ' + u.replace(/https?:\/\/(www\.)?/, '').slice(0, 40);
     runAnalysis(
-      fetch('/api/analyze-video', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }) }),
+      fetch('/api/analyze-video-url', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: u }) }),
+      label
+    );
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setMediaFile(file);
+    setMediaPreview(URL.createObjectURL(file));
+    setScan(null);
+    setError(null);
+  };
+
+  const handleAnalyzeImage = async (e) => {
+    e.preventDefault();
+    if (!mediaFile) return;
+    const { base64, mimeType } = await resizeImage(mediaFile);
+    const label = '🖼 ' + mediaFile.name.slice(0, 40);
+    runAnalysis(
+      fetch('/api/analyze-image', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ imageBase64: base64, mimeType }) }),
       label
     );
   };
@@ -237,9 +277,10 @@ export default function App() {
             <div className="mode-tabs">
               <button className={mode === 'text' ? 'active' : ''} onClick={() => { setMode('text'); reset(); }}>✎ Texte / Idée</button>
               <button className={mode === 'video' ? 'active' : ''} onClick={() => { setMode('video'); reset(); }}>▶ Vidéo YouTube</button>
+              <button className={mode === 'image' ? 'active' : ''} onClick={() => { setMode('image'); reset(); setMediaFile(null); setMediaPreview(null); }}>🖼 Image</button>
             </div>
 
-            {mode === 'text' ? (
+            {mode === 'text' && (
               <>
                 <form className="input-row" onSubmit={handleAnalyze} autoComplete="off">
                   <input
@@ -261,7 +302,9 @@ export default function App() {
                   ))}
                 </div>
               </>
-            ) : (
+            )}
+
+            {mode === 'video' && (
               <form className="input-row" onSubmit={handleAnalyzeVideo} autoComplete="off">
                 <input
                   type="url"
@@ -272,6 +315,19 @@ export default function App() {
                 />
                 <button className="scan-btn" type="submit" disabled={loading}>
                   {loading ? '⟳ Analyse…' : '▸ Analyser'}
+                </button>
+              </form>
+            )}
+
+            {mode === 'image' && (
+              <form className="input-row" onSubmit={handleAnalyzeImage} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                <input type="file" accept="image/*" ref={fileRef} style={{ display: 'none' }} onChange={handleFileChange} />
+                <button type="button" className="scan-btn" style={{ marginBottom: 8 }} onClick={() => fileRef.current.click()}>
+                  {mediaFile ? `📎 ${mediaFile.name.slice(0, 40)}` : '📂 Choisir une image'}
+                </button>
+                {mediaPreview && <img src={mediaPreview} alt="preview" style={{ maxHeight: 160, objectFit: 'contain', borderRadius: 4, marginBottom: 8 }} />}
+                <button className="scan-btn" type="submit" disabled={loading || !mediaFile}>
+                  {loading ? '⟳ Analyse…' : '▸ Analyser l\'image'}
                 </button>
               </form>
             )}
