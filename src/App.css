@@ -82,6 +82,38 @@ input, textarea { font-family: inherit; }
   padding: 0; font-size: 13px; flex-shrink: 0;
 }
 
+/* ── BARRE JAURÈS ── */
+.jaures-bar {
+  background: var(--red-deep);
+  border-bottom: 3px solid var(--ink);
+  padding: 10px 28px;
+  display: flex; align-items: baseline; gap: 16px;
+  flex-wrap: wrap;
+}
+.jaures-quote {
+  font-family: var(--font-head);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--paper);
+  font-style: italic;
+  line-height: 1.3;
+}
+.jaures-quote strong {
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-style: normal;
+}
+.jaures-author {
+  font-family: var(--font-ui);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(234, 223, 198, 0.65);
+  white-space: nowrap;
+}
+
 .install-btn {
   background: var(--red); color: var(--paper); border: 0;
   padding: 7px 14px; font-family: var(--font-head); font-weight: 700;

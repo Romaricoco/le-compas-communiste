@@ -182,6 +182,11 @@ export default function App() {
         </div>
       )}
 
+      <div className="jaures-bar">
+        <span className="jaures-quote">«&thinsp;Le capitalisme porte en lui la guerre comme la nuée porte <strong>l'orage</strong>&thinsp;»</span>
+        <span className="jaures-author">— Jean Jaurès</span>
+      </div>
+
       {view === 'jeu' && (
         <main className="game-main">
           <Game />
@@ -394,7 +399,7 @@ export default function App() {
       </main>}
 
       <footer className="foot">
-        <div className="quote">«&nbsp;On sauve le monde, <b>une ligne de code</b> à la fois.&nbsp;»</div>
+        <div className="quote">«&nbsp;De chacun selon ses capacités, <b>à chacun selon ses besoins</b>.&nbsp;» — Karl Marx</div>
         <div className="links">
           <span>GitHub</span><span>RSS</span><span>compas-communiste.fr</span>
         </div>
