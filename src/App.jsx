@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import Game from './Game.jsx';
+import { CRITERIA_ICONS } from './CriteriaIcons.jsx';
 
 const CRITERIA = [
   { id: 'abolition_propriete_privee', n: 'I',   short: 'Propriété',  long: 'Abolition de la propriété privée car la propriété privée protège les riches et maintient les inégalités !' },
@@ -291,9 +292,12 @@ export default function App() {
                       : 'à scanner';
                   return (
                     <div key={c.id} className={cls}>
-                      <div className="id">{c.n}</div>
-                      <div className="lbl"><b>{c.short}</b>{c.long}</div>
-                      <div className="verdict">{verdictLabel}</div>
+                      <div className="needle-art">{CRITERIA_ICONS[c.id]}</div>
+                      <div className="needle-content">
+                        <div className="needle-num">{c.n}</div>
+                        <div className="lbl"><b>{c.short}</b>{c.long}</div>
+                        <div className="verdict">{verdictLabel}</div>
+                      </div>
                     </div>
                   );
                 })}

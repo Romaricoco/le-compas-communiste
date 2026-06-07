@@ -203,29 +203,61 @@ main {
 .needles-head hr { flex: 1; border: 0; border-top: 2px solid var(--ink); }
 .needles-head .n { font-family: var(--font-ui); font-size: 11px; color: var(--ink-soft); letter-spacing: 0.16em; }
 .needles-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+
+/* Needle card — format affiche politique verticale */
 .needle {
   background: var(--paper); border: 2px solid var(--ink);
-  padding: 14px 16px;
-  display: grid; grid-template-columns: 42px 1fr auto; gap: 10px;
-  align-items: center; position: relative; transition: background .2s;
+  display: flex; flex-direction: column;
+  position: relative; overflow: hidden;
+  transition: border-color .2s;
 }
-.needle .id { font-family: var(--font-head); font-weight: 700; font-size: 32px; line-height: 0.9; color: var(--ink); letter-spacing: 0.02em; }
-.needle .lbl { font-family: var(--font-ui); font-size: 12px; line-height: 1.4; color: var(--ink); }
-.needle .lbl b { font-family: var(--font-head); font-weight: 700; font-size: 15px; text-transform: uppercase; letter-spacing: 0.01em; display: block; margin-bottom: 2px; }
+
+/* Zone illustration — fond d'encre comme une affiche */
+.needle-art {
+  background: var(--ink);
+  border-bottom: 4px solid var(--red);
+  display: flex; align-items: center; justify-content: center;
+  padding: 18px 14px;
+  min-height: 120px;
+}
+.needle-art svg { width: 90px; height: 90px; overflow: visible; }
+
+/* Zone texte */
+.needle-content {
+  padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 8px;
+  flex: 1;
+}
+.needle-num {
+  font-family: var(--font-head); font-weight: 700;
+  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
+  color: var(--ink-mute);
+}
+.needle .lbl { font-family: var(--font-ui); font-size: 11.5px; line-height: 1.5; color: var(--ink); }
+.needle .lbl b { font-family: var(--font-head); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.02em; display: block; margin-bottom: 3px; }
 .verdict {
   font-family: var(--font-head); font-weight: 700; font-size: 11px;
   letter-spacing: 0.1em; text-transform: uppercase;
   padding: 5px 9px; border: 1.5px solid var(--ink);
   background: var(--paper-deep); color: var(--ink); white-space: nowrap;
+  align-self: flex-start; margin-top: auto;
 }
-.needle.communist { background: var(--red); color: var(--paper); border-color: var(--ink); }
-.needle.communist .id, .needle.communist .lbl { color: var(--paper); }
-.needle.communist .verdict { background: var(--ink); color: var(--paper); border-color: var(--paper); }
-.needle.capitalist { background: var(--blue); color: var(--paper); border-color: var(--ink); }
-.needle.capitalist .id, .needle.capitalist .lbl { color: var(--paper); }
-.needle.capitalist .verdict { background: var(--paper); color: var(--blue); border-color: var(--paper); }
-.needle.scanning {
-  background: repeating-linear-gradient(135deg, var(--paper-deep) 0 10px, var(--paper) 10px 20px);
+
+/* États verdict */
+.needle.communist { border-color: var(--red); }
+.needle.communist .needle-art { border-bottom-color: var(--paper-deep); }
+.needle.communist .needle-content { background: var(--red); }
+.needle.communist .needle-num, .needle.communist .lbl, .needle.communist .lbl b { color: var(--paper); }
+.needle.communist .verdict { background: var(--ink); color: var(--paper); border-color: var(--paper-deep); }
+
+.needle.capitalist { border-color: var(--blue); }
+.needle.capitalist .needle-art { border-bottom-color: var(--paper-deep); }
+.needle.capitalist .needle-content { background: var(--blue); }
+.needle.capitalist .needle-num, .needle.capitalist .lbl, .needle.capitalist .lbl b { color: var(--paper); }
+.needle.capitalist .verdict { background: var(--paper); color: var(--blue); border-color: var(--paper-deep); }
+
+.needle.scanning .needle-art {
+  background: repeating-linear-gradient(135deg, #1a1a1a 0 10px, var(--ink) 10px 20px);
   animation: cc-scan 1.2s linear infinite;
 }
 @keyframes cc-scan { to { background-position: 60px 0; } }
