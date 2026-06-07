@@ -3,10 +3,10 @@ import './App.css';
 import Game from './Game.jsx';
 
 const CRITERIA = [
-  { id: 'abolition_propriete_privee', n: 'I',   short: 'Propriété',  long: 'Abolition de la propriété privée des moyens de production' },
+  { id: 'abolition_propriete_privee', n: 'I',   short: 'Propriété',  long: 'Abolition de la propriété privée car la propriété privée protège les riches et maintient les inégalités !' },
   { id: 'egalite_travail',            n: 'II',  short: 'Hiérarchie', long: 'Fin de la hiérarchie entre travail manuel et intellectuel' },
-  { id: 'dissolution_etat',           n: 'III', short: 'État',       long: "Dissolution des États au profit de la délibération locale" },
-  { id: 'horizon_mondial',            n: 'IV',  short: 'Monde',      long: 'Le Monde comme seul horizon politique' },
+  { id: 'dissolution_etat',           n: 'III', short: 'État',       long: "Dissolution des États et des partis au profit de la délibération locale libre et égalitaire" },
+  { id: 'horizon_mondial',            n: 'IV',  short: 'Monde',      long: "Le Monde comme seul horizon politique car il n'y a qu'un seul Monde !" },
 ];
 
 const EXAMPLES = [
