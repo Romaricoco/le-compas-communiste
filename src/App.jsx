@@ -259,6 +259,14 @@ export default function App() {
 
       {view === 'compas' && <main>
         <section className="scanner">
+          <div className="globe-wrap">
+            <div>
+              <div className="globe">
+                <div className="globe-lines"></div>
+              </div>
+              <div className="globe-label">· Un seul monde ·</div>
+            </div>
+          </div>
           <div className="scanner-head">
             <div className="num">·· Boussole n° <b>01</b> ·· Scan ··</div>
             <div className="meta">4 aiguilles · réponse en ~6 sec</div>
