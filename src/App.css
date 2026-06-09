@@ -252,7 +252,7 @@ input, textarea { font-family: inherit; }
 
 /* ── LAYOUT ── */
 main {
-  max-width: 1340px; margin: 0 auto; padding: 28px 40px 80px;
+  max-width: 100%; margin: 0; padding: 28px 0 80px 0;
   display: flex;
   flex-direction: row;
   justify-content: space-between;
@@ -260,12 +260,13 @@ main {
   gap: 24px;
 }
 main > .scanner {
-  flex: 0 0 480px;
+  flex: 0 0 600px;
   border-right: 1px solid rgba(232,232,240,0.08);
 }
 main > .flux {
-  flex: 0 0 380px;
+  flex: 0 0 420px;
   border-left: 2px solid rgba(192,57,43,0.4);
+  margin-right: 0;
 }
 
 /* ── SCANNER ── */
