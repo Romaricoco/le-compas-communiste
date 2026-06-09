@@ -392,10 +392,10 @@ main > .scanner {
 .needle-num {
   font-family: var(--font-head); font-weight: 700;
   font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase;
-  color: var(--ink-mute);
+  color: rgba(232,232,240,0.5);
 }
-.needle .lbl { font-family: var(--font-ui); font-size: 11.5px; line-height: 1.5; color: var(--ink); }
-.needle .lbl b { font-family: var(--font-head); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.02em; display: block; margin-bottom: 3px; }
+.needle .lbl { font-family: var(--font-ui); font-size: 11.5px; line-height: 1.5; color: #fff; text-shadow: 0 0 12px rgba(255,255,255,0.4); }
+.needle .lbl b { font-family: var(--font-head); font-weight: 700; font-size: 14px; text-transform: uppercase; letter-spacing: 0.02em; display: block; margin-bottom: 3px; color: #fff; text-shadow: 0 0 16px rgba(255,255,255,0.6); }
 .verdict {
   font-family: var(--font-head); font-weight: 700; font-size: 11px;
   letter-spacing: 0.1em; text-transform: uppercase;
