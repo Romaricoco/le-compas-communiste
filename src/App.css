@@ -1,18 +1,18 @@
 /* Le Compas Communiste — refonte Samizdat */
 
 :root {
-  --paper: #eadfc6;
-  --paper-deep: #d8c9a6;
-  --paper-edge: #c9b990;
-  --ink: #150506;
-  --ink-soft: #3c1a1e;
-  --ink-mute: #6b4a48;
-  --red: #b8121b;
-  --red-bright: #d8232b;
-  --red-deep: #7a0a10;
-  --blue: #1a3a6b;
-  --blue-bright: #2a5599;
-  --rule: rgba(21, 5, 6, 0.22);
+  --paper: #1a1a2e;
+  --paper-deep: #16213e;
+  --paper-edge: #0f3460;
+  --ink: #e8e8f0;
+  --ink-soft: #b0b0c8;
+  --ink-mute: #7070a0;
+  --red: #c0392b;
+  --red-bright: #e74c3c;
+  --red-deep: #8b0000;
+  --blue: #2980b9;
+  --blue-bright: #3498db;
+  --rule: rgba(232, 232, 240, 0.18);
   --font-head: "Oswald", "Archivo", Impact, sans-serif;
   --font-ui: "Space Mono", ui-monospace, monospace;
 }
@@ -25,14 +25,68 @@ html, body {
   min-height: 100%;
 }
 body {
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.05 0 0 0 0 0.05 0 0 0 0.12 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(192, 57, 43, 0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 20%, rgba(41, 128, 185, 0.08) 0%, transparent 50%);
 }
 button { font-family: inherit; cursor: pointer; }
 input, textarea { font-family: inherit; }
 
+/* ── GLOBE ── */
+.globe-wrap {
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px 0 8px;
+}
+.globe {
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #4fc3f7 0%, #1565c0 40%, #0d2a6b 70%, #050e2a 100%);
+  box-shadow:
+    0 0 0 2px rgba(79, 195, 247, 0.3),
+    0 0 40px rgba(21, 101, 192, 0.6),
+    inset -15px -10px 30px rgba(5, 14, 42, 0.7);
+  position: relative;
+  overflow: hidden;
+  animation: globe-spin 18s linear infinite;
+}
+.globe::before {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background:
+    radial-gradient(ellipse 30% 60% at 30% 40%, rgba(34, 139, 34, 0.55) 0%, transparent 50%),
+    radial-gradient(ellipse 20% 40% at 65% 55%, rgba(34, 139, 34, 0.45) 0%, transparent 45%),
+    radial-gradient(ellipse 25% 30% at 50% 75%, rgba(34, 100, 34, 0.4) 0%, transparent 40%),
+    radial-gradient(ellipse 15% 20% at 15% 65%, rgba(34, 139, 34, 0.35) 0%, transparent 35%);
+}
+.globe::after {
+  content: '';
+  position: absolute; inset: 0; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%, rgba(0,0,0,0.2) 100%);
+}
+.globe-lines {
+  position: absolute; inset: 0; border-radius: 50%; overflow: hidden;
+}
+.globe-lines::before {
+  content: '';
+  position: absolute; inset: -10px;
+  background:
+    repeating-linear-gradient(0deg, transparent 0px, transparent 18px, rgba(100,180,255,0.12) 18px, rgba(100,180,255,0.12) 19px),
+    repeating-linear-gradient(90deg, transparent 0px, transparent 18px, rgba(100,180,255,0.12) 18px, rgba(100,180,255,0.12) 19px);
+}
+@keyframes globe-spin {
+  from { box-shadow: 0 0 0 2px rgba(79,195,247,0.3), 0 0 40px rgba(21,101,192,0.6), inset -15px -10px 30px rgba(5,14,42,0.7); }
+  50%  { box-shadow: 0 0 0 2px rgba(79,195,247,0.5), 0 0 60px rgba(21,101,192,0.8), inset 5px -10px 30px rgba(5,14,42,0.7); }
+  to   { box-shadow: 0 0 0 2px rgba(79,195,247,0.3), 0 0 40px rgba(21,101,192,0.6), inset -15px -10px 30px rgba(5,14,42,0.7); }
+}
+.globe-label {
+  margin-top: 10px; text-align: center;
+  font-family: var(--font-head); font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; color: rgba(79,195,247,0.7);
+}
+
 /* ── HEADER ── */
 .topbar {
-  background: var(--ink); color: var(--paper);
+  background: #0d0d1a; color: var(--ink);
   border-bottom: 6px solid var(--red);
   padding: 14px 28px;
   display: flex; align-items: center; justify-content: space-between; gap: 18px;
@@ -131,20 +185,20 @@ main {
 }
 
 /* ── SCANNER ── */
-.scanner { background: var(--paper-deep); border: 2px solid var(--ink); position: relative; }
+.scanner { background: var(--paper-deep); border: 2px solid rgba(232,232,240,0.2); position: relative; }
 .scanner-head {
-  background: var(--ink); color: var(--paper);
+  background: #0d0d1a; color: var(--ink);
   padding: 18px 24px 16px;
   display: flex; justify-content: space-between; align-items: baseline; gap: 14px;
   border-bottom: 6px solid var(--red);
 }
 .scanner-head .num {
   font-family: var(--font-head); font-weight: 700; font-size: 14px;
-  letter-spacing: 0.22em; text-transform: uppercase; color: var(--paper-deep);
+  letter-spacing: 0.22em; text-transform: uppercase; color: var(--ink-soft);
 }
 .scanner-head .num b { color: var(--red-bright); }
 .scanner-head .meta {
-  font-family: var(--font-ui); font-size: 11px; color: var(--paper-deep);
+  font-family: var(--font-ui); font-size: 11px; color: var(--ink-mute);
   letter-spacing: 0.04em;
 }
 .scanner-body { padding: 28px 28px 24px; position: relative; }
@@ -154,7 +208,7 @@ main {
 .scanner-body h2 {
   font-family: var(--font-head); font-weight: 700; font-size: 54px;
   line-height: 0.92; text-transform: uppercase; letter-spacing: -0.005em;
-  color: var(--ink); margin-bottom: 6px;
+  color: var(--ink); margin-bottom: 6px; text-shadow: 0 0 40px rgba(200,60,60,0.2);
 }
 .scanner-body h2 .hl { background: var(--red); color: var(--paper); padding: 0 10px; display: inline-block; }
 .scanner-body p.sub {
@@ -183,12 +237,12 @@ main {
 
 .input-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 22px; }
 .input-row input {
-  background: var(--paper); border: 2px solid var(--ink);
+  background: #0d0d1a; border: 2px solid rgba(232,232,240,0.25);
   padding: 18px 18px; font-family: var(--font-ui); font-size: 15px;
   color: var(--ink); outline: none; transition: background .15s;
 }
 .input-row input::placeholder { color: var(--ink-mute); font-style: italic; }
-.input-row input:focus { background: #fff7e3; box-shadow: inset 0 0 0 2px var(--red); }
+.input-row input:focus { background: #111130; box-shadow: inset 0 0 0 2px var(--red); }
 .input-row .scan-btn {
   background: var(--ink); color: var(--paper); border: 0;
   padding: 0 28px; font-family: var(--font-head); font-weight: 700;
@@ -238,7 +292,7 @@ main {
 
 /* Needle card — format affiche politique verticale */
 .needle {
-  background: var(--paper); border: 2px solid var(--ink);
+  background: #1e1e35; border: 2px solid rgba(232,232,240,0.15);
   display: flex; flex-direction: column;
   position: relative; overflow: hidden;
   transition: border-color .2s;
@@ -331,21 +385,21 @@ main {
 /* ── FLUX ── */
 .flux { align-self: start; }
 .flux-head {
-  background: var(--ink); color: var(--paper);
+  background: #0d0d1a; color: var(--ink);
   padding: 14px 18px;
   display: flex; justify-content: space-between; align-items: center;
   border-bottom: 6px solid var(--red);
 }
 .flux-head h3 { font-family: var(--font-head); font-weight: 700; font-size: 17px; text-transform: uppercase; letter-spacing: 0.04em; }
-.flux-head .count { font-family: var(--font-ui); font-size: 11px; color: var(--paper-deep); letter-spacing: 0.1em; }
+.flux-head .count { font-family: var(--font-ui); font-size: 11px; color: var(--ink-soft); letter-spacing: 0.1em; }
 .flux-list {
-  background: var(--paper-deep); border: 2px solid var(--ink); border-top: 0;
+  background: var(--paper-deep); border: 2px solid rgba(232,232,240,0.2); border-top: 0;
   max-height: 760px; overflow-y: auto; padding: 14px;
   display: flex; flex-direction: column; gap: 12px;
 }
 .flux-list::-webkit-scrollbar { width: 8px; }
 .flux-list::-webkit-scrollbar-thumb { background: var(--ink); }
-.card { background: var(--paper); border: 2px solid var(--ink); padding: 12px 14px; position: relative; }
+.card { background: #1e1e35; border: 2px solid rgba(232,232,240,0.15); padding: 12px 14px; position: relative; }
 .card.new { animation: cc-pop .35s ease; box-shadow: 4px 4px 0 var(--red); }
 @keyframes cc-pop { from { transform: translateY(-6px); opacity: 0; } to { transform: none; opacity: 1; } }
 .card .row1 { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
