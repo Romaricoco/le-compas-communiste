@@ -190,9 +190,15 @@ input, textarea { font-family: inherit; }
 .nav a.active { color: var(--paper); background: var(--red); font-weight: 700; }
 .status {
   display: flex; align-items: center; gap: 8px;
-  background: rgba(184, 18, 27, 0.12); border: 1.5px solid rgba(216, 35, 43, 0.35);
-  color: var(--paper); padding: 6px 12px; white-space: nowrap;
+  background: #cc2200; border: 2px solid #ff3300;
+  color: #fff; padding: 6px 14px; white-space: nowrap;
   font-size: 10.5px; font-family: var(--font-ui); letter-spacing: 0.12em; text-transform: uppercase;
+  box-shadow: 0 0 12px rgba(204,34,0,0.7);
+  animation: alert-pulse 2s ease-in-out infinite;
+}
+@keyframes alert-pulse {
+  0%, 100% { box-shadow: 0 0 12px rgba(204,34,0,0.7); }
+  50% { box-shadow: 0 0 24px rgba(255,50,0,1); }
 }
 .status .dot { width: 7px; height: 7px; background: #19c37d; border-radius: 50%; animation: cc-pulse 1.6s ease-in-out infinite; }
 .ios-banner {
