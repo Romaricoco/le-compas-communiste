@@ -88,7 +88,12 @@ export default function App() {
     try {
       const res = await fetchPromise;
       if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
-      const result = await res.json();
+      const raw = await res.json();
+      // normalize État key — API may return rapport_etat_capital or dissolution_etat
+      const result = {
+        ...raw,
+        rapport_etat_capital: raw.rapport_etat_capital || raw.dissolution_etat || raw.etat || raw.rapport_etat,
+      };
       const comCount = CRITERIA.filter(c => result[c.id] === 'communist').length;
       const capPct = Math.round(((CRITERIA.length - comCount) / CRITERIA.length) * 100);
       setScan({ result, capitalist: capPct, hasTranscript: result.hasTranscript });
