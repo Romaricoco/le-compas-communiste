@@ -62,7 +62,10 @@ export default async function handler(req, res) {
 
     if (!response.ok) throw new Error(`Mistral API ${response.status}: ${await response.text()}`);
     const data = await response.json();
-    res.status(200).json(JSON.parse(data.choices[0].message.content));
+    const result = JSON.parse(data.choices[0].message.content);
+    // normalize État key — Mistral may use various names
+    const etatVal = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital;
+    res.status(200).json({ ...result, rapport_etat_capital: etatVal });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });

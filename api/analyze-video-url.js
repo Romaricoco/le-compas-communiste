@@ -218,7 +218,8 @@ export default async function handler(req, res) {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `Analyse cette vidéo YouTube :\n${contextText}` },
       ]);
-      return res.status(200).json({ ...result, videoId, source: 'transcript' });
+      const etatValtranscript = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital;
+    return res.status(200).json({ ...result, rapport_etat_capital: etatValtranscript, videoId, source: 'transcript' });
     }
 
     // 4. Fallback : miniatures + titre
@@ -256,7 +257,8 @@ export default async function handler(req, res) {
       },
     ]);
 
-    return res.status(200).json({ ...result, videoId, source: 'thumbnails' });
+    const etatValthumbnails = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital;
+    return res.status(200).json({ ...result, rapport_etat_capital: etatValthumbnails, videoId, source: 'thumbnails' });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
