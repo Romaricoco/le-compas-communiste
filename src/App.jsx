@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Game from './Game.jsx';
 import { CRITERIA_ICONS } from './CriteriaIcons.jsx';
-import EarthGlobe from './EarthGlobe.jsx';
+import EarthBackground from './components/EarthBackground.jsx';
 
 function resizeImage(file, maxWidth = 800) {
   return new Promise((resolve) => {
@@ -195,19 +195,40 @@ export default function App() {
 
   return (
     <>
-      <EarthGlobe
-        title={title}
-        setTitle={setTitle}
-        onAnalyze={handleAnalyze}
-        loading={loading}
-        view={view}
-        setView={setView}
-        installPrompt={installPrompt}
-        onInstall={handleInstall}
-        installed={installed}
-        showIosBanner={showIosBanner}
-        onDismissIos={dismissIosBanner}
-      />
+      <EarthBackground />
+      <div className="app-content">
+      <header className="topbar">
+        <div className="brand">
+          <div className="mark">★</div>
+          <div>
+            <h1>Le Compas Communiste</h1>
+            <div className="tag">// <b>Distinguer pour agir</b> · scan via IA · MMXXVI</div>
+          </div>
+        </div>
+        <nav className="nav">
+          <a href="#" className={view === 'compas' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('compas'); }}>Le compas</a>
+          <a href="#" className={view === 'jeu' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('jeu'); }}>★ Le Jeu</a>
+        </nav>
+        {installPrompt && !installed && (
+          <button className="install-btn" onClick={handleInstall}>⬇ Installer l'app</button>
+        )}
+        <div className="status">
+          <span className="dot"></span>
+          {installed ? 'App installée ✓' : 'Prototype v2.0 · IA active'}
+        </div>
+      </header>
+
+      {showIosBanner && (
+        <div className="ios-banner">
+          <span>Pour installer l'app : appuie sur <b>⎋ Partager</b> puis <b>« Sur l'écran d'accueil »</b></span>
+          <button onClick={dismissIosBanner}>✕</button>
+        </div>
+      )}
+
+      <div className="jaures-bar">
+        <span className="jaures-quote">«&thinsp;Le capitalisme porte en lui la guerre comme la nuée porte <strong>l'orage</strong>&thinsp;»</span>
+        <span className="jaures-author">— Jean Jaurès</span>
+      </div>
 
       {view === 'jeu' && (
         <main className="game-main">
@@ -442,6 +463,7 @@ export default function App() {
           <span>GitHub</span><span>RSS</span><span>compas-communiste.fr</span>
         </div>
       </footer>
+      </div>
     </>
   );
 }

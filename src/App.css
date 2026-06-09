@@ -18,16 +18,15 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body {
-  background: var(--paper);
+html, body, #root {
+  background: #000;
   color: var(--ink);
   font-family: var(--font-ui);
   min-height: 100%;
 }
-body {
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(192, 57, 43, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse at 80% 20%, rgba(41, 128, 185, 0.08) 0%, transparent 50%);
+.app-content {
+  position: relative;
+  z-index: 2;
 }
 button { font-family: inherit; cursor: pointer; }
 input, textarea { font-family: inherit; }
