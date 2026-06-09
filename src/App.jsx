@@ -220,13 +220,7 @@ export default function App() {
 
 {view === 'compas' && <main>
         <section className="scanner">
-          <div className="scanner-head">
-            <div className="num">·· Boussole n° <b>01</b> ·· Scan ··</div>
-            <div className="meta">4 aiguilles · réponse en ~6 sec</div>
-          </div>
           <div className="scanner-body">
-            <div className="stamp">Libre<br/>diffusion<br/>MMXXVI</div>
-
             <h2>
               Qu'est-ce que tu passes au <span className="hl">compas</span><br/>
               aujourd'hui&nbsp;?
