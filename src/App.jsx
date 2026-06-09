@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Game from './Game.jsx';
 import { CRITERIA_ICONS } from './CriteriaIcons.jsx';
+import EarthGlobe from './EarthGlobe.jsx';
 
 function resizeImage(file, maxWidth = 800) {
   return new Promise((resolve) => {
@@ -194,38 +195,19 @@ export default function App() {
 
   return (
     <>
-      <header className="topbar">
-        <div className="brand">
-          <div className="mark">★</div>
-          <div>
-            <h1>Le Compas Communiste</h1>
-            <div className="tag">// <b>Distinguer pour agir</b> · scan via IA · MMXXVI</div>
-          </div>
-        </div>
-        <nav className="nav">
-          <a href="#" className={view === 'compas' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('compas'); }}>Le compas</a>
-          <a href="#" className={view === 'jeu' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('jeu'); }}>★ Le Jeu</a>
-        </nav>
-        {installPrompt && !installed && (
-          <button className="install-btn" onClick={handleInstall}>⬇ Installer l'app</button>
-        )}
-        <div className="status">
-          <span className="dot"></span>
-          {installed ? 'App installée ✓' : 'Prototype v2.0 · IA active'}
-        </div>
-      </header>
-
-      {showIosBanner && (
-        <div className="ios-banner">
-          <span>Pour installer l'app : appuie sur <b>⎋ Partager</b> puis <b>« Sur l'écran d'accueil »</b></span>
-          <button onClick={dismissIosBanner}>✕</button>
-        </div>
-      )}
-
-      <div className="jaures-bar">
-        <span className="jaures-quote">«&thinsp;Le capitalisme porte en lui la guerre comme la nuée porte <strong>l'orage</strong>&thinsp;»</span>
-        <span className="jaures-author">— Jean Jaurès</span>
-      </div>
+      <EarthGlobe
+        title={title}
+        setTitle={setTitle}
+        onAnalyze={handleAnalyze}
+        loading={loading}
+        view={view}
+        setView={setView}
+        installPrompt={installPrompt}
+        onInstall={handleInstall}
+        installed={installed}
+        showIosBanner={showIosBanner}
+        onDismissIos={dismissIosBanner}
+      />
 
       {view === 'jeu' && (
         <main className="game-main">
@@ -257,19 +239,7 @@ export default function App() {
         </main>
       )}
 
-      {view === 'compas' && (
-        <div className="globe-hero">
-          <div className="earth-atmosphere"></div>
-          <div className="earth">
-            <div className="earth-continents"></div>
-            <div className="earth-grid"></div>
-            <div className="earth-glow"></div>
-          </div>
-          <div className="globe-tagline">· Un seul monde ·</div>
-        </div>
-      )}
-
-      {view === 'compas' && <main>
+{view === 'compas' && <main>
         <section className="scanner">
           <div className="scanner-head">
             <div className="num">·· Boussole n° <b>01</b> ·· Scan ··</div>

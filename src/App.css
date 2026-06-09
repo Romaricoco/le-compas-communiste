@@ -32,7 +32,124 @@ body {
 button { font-family: inherit; cursor: pointer; }
 input, textarea { font-family: inherit; }
 
-/* ── GLOBE HERO ── */
+/* ── HERO CANVAS (Three.js) ── */
+.hero-scene {
+  position: relative;
+  width: 100%;
+  height: 640px;
+  overflow: hidden;
+  background: #000008;
+}
+.earth-mount {
+  position: absolute; inset: 0;
+}
+.earth-mount canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+.hero-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to bottom,
+    rgba(0,0,0,0.1) 0%,
+    rgba(0,0,0,0.0) 35%,
+    rgba(0,0,0,0.5) 75%,
+    rgba(0,0,0,0.88) 100%);
+  pointer-events: none;
+}
+.hero-nav {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; gap: 20px;
+  padding: 18px 32px; z-index: 10;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.55) 0%, transparent 100%);
+}
+.hero-mark {
+  width: 30px; height: 30px; background: #cc2200;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; color: #fff; font-weight: 900; flex-shrink: 0;
+}
+.hero-brand-name {
+  display: block; color: #fff; font-family: var(--font-head);
+  font-size: 15px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+}
+.hero-brand-sub {
+  display: block; color: rgba(255,255,255,0.5);
+  font-family: var(--font-ui); font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 2px;
+}
+.hero-brand { display: flex; align-items: center; gap: 12px; }
+.hero-nav-links { display: flex; gap: 4px; margin-left: auto; }
+.hero-nav-links a {
+  color: rgba(255,255,255,0.7); text-decoration: none;
+  font-family: var(--font-head); font-size: 12px; font-weight: 600;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  padding: 6px 14px; transition: color .15s;
+}
+.hero-nav-links a:hover { color: #fff; }
+.hero-nav-links a.active { color: #fff; background: #cc2200; }
+.hero-install-btn {
+  background: #cc2200; color: #fff; border: 0;
+  padding: 7px 14px; font-family: var(--font-head); font-weight: 700;
+  font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer;
+}
+.hero-status {
+  display: flex; align-items: center; gap: 7px;
+  font-family: var(--font-ui); font-size: 10px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+}
+.hero-dot {
+  width: 6px; height: 6px; background: #19c37d; border-radius: 50%;
+  animation: cc-pulse 1.6s ease-in-out infinite; flex-shrink: 0;
+}
+.hero-ticker {
+  position: absolute; top: 62px; left: 0; right: 0;
+  background: #cc2200; padding: 7px 32px; z-index: 10; overflow: hidden;
+  font-family: Georgia, serif; font-size: 11px; font-style: italic;
+  letter-spacing: 0.06em; color: #fff; white-space: nowrap;
+}
+.hero-ticker strong { font-style: normal; font-weight: 900; text-transform: uppercase; }
+.hero-content {
+  position: absolute; bottom: 70px; left: 0; right: 0;
+  padding: 0 40px; z-index: 10; max-width: 620px;
+}
+.hero-eyebrow {
+  color: rgba(255,255,255,0.45); font-family: var(--font-ui);
+  font-size: 10px; letter-spacing: 0.28em; text-transform: uppercase; margin-bottom: 14px;
+}
+.hero-title {
+  font-family: var(--font-head); font-weight: 900; font-size: 54px;
+  line-height: 1.0; text-transform: uppercase; margin-bottom: 16px;
+}
+.ht-white { display: block; color: #fff; }
+.ht-red   { display: block; color: #cc2200; }
+.hero-sub {
+  color: rgba(255,255,255,0.65); font-family: Georgia, serif;
+  font-size: 13px; line-height: 1.65; margin-bottom: 24px; max-width: 480px;
+}
+.hero-form { display: flex; max-width: 520px; }
+.hero-input {
+  flex: 1; background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.22); border-right: 0;
+  color: #fff; padding: 13px 16px; font-family: Georgia, serif; font-size: 13px; outline: none;
+}
+.hero-input::placeholder { color: rgba(255,255,255,0.32); }
+.hero-input:focus { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.4); }
+.hero-btn {
+  background: #cc2200; color: #fff; border: 0;
+  padding: 13px 24px; font-family: var(--font-head); font-weight: 700;
+  font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase; cursor: pointer; white-space: nowrap;
+}
+.hero-btn:hover { background: #e02500; }
+.hero-btn:disabled { opacity: 0.6; cursor: wait; }
+@media (max-width: 640px) {
+  .hero-scene { height: 520px; }
+  .hero-title { font-size: 36px; }
+  .hero-content { padding: 0 20px; bottom: 50px; }
+  .hero-nav { padding: 14px 16px; }
+  .hero-status { display: none; }
+}
+
+/* ── ANCIEN GLOBE (supprimé) ── */
 .globe-hero {
   position: relative;
   width: 100%;
