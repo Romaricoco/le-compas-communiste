@@ -63,9 +63,11 @@ export default async function handler(req, res) {
     if (!response.ok) throw new Error(`Mistral API ${response.status}: ${await response.text()}`);
     const data = await response.json();
     const result = JSON.parse(data.choices[0].message.content);
-    // normalize État key — Mistral may use various names
-    const etatVal = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital;
-    res.status(200).json({ ...result, rapport_etat_capital: etatVal });
+    // find État value by trying all known key variants, then by exclusion
+    const KNOWN_KEYS = ['abolition_propriete_privee', 'egalite_travail', 'horizon_mondial', 'justification', 'hasTranscript'];
+    const etatVal = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital
+      || Object.entries(result).find(([k, v]) => !KNOWN_KEYS.includes(k) && (v === 'communist' || v === 'capitalist'))?.[1];
+    res.status(200).json({ ...result, rapport_etat_capital: etatVal, _debug_keys: Object.keys(result) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
