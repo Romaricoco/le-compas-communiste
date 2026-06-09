@@ -257,16 +257,20 @@ export default function App() {
         </main>
       )}
 
+      {view === 'compas' && (
+        <div className="globe-hero">
+          <div className="earth-atmosphere"></div>
+          <div className="earth">
+            <div className="earth-continents"></div>
+            <div className="earth-grid"></div>
+            <div className="earth-glow"></div>
+          </div>
+          <div className="globe-tagline">· Un seul monde ·</div>
+        </div>
+      )}
+
       {view === 'compas' && <main>
         <section className="scanner">
-          <div className="globe-wrap">
-            <div>
-              <div className="globe">
-                <div className="globe-lines"></div>
-              </div>
-              <div className="globe-label">· Un seul monde ·</div>
-            </div>
-          </div>
           <div className="scanner-head">
             <div className="num">·· Boussole n° <b>01</b> ·· Scan ··</div>
             <div className="meta">4 aiguilles · réponse en ~6 sec</div>
