@@ -363,7 +363,7 @@ main > .scanner {
 .needles-head .t { font-family: var(--font-head); font-weight: 700; font-size: 18px; text-transform: uppercase; letter-spacing: 0.02em; }
 .needles-head hr { flex: 1; border: 0; border-top: 2px solid var(--ink); }
 .needles-head .n { font-family: var(--font-ui); font-size: 11px; color: var(--ink-soft); letter-spacing: 0.16em; }
-.needles-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.needles-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 
 /* Needle card — format affiche politique verticale */
 .needle {
@@ -385,7 +385,7 @@ main > .scanner {
 
 /* Zone texte */
 .needle-content {
-  padding: 12px 14px;
+  padding: 8px 10px;
   display: flex; flex-direction: column; gap: 8px;
   flex: 1;
 }

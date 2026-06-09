@@ -308,7 +308,6 @@ export default function App() {
                       : null;
                   return (
                     <div key={c.id} className={cls}>
-                      <div className="needle-art">{CRITERIA_ICONS[c.id]}</div>
                       <div className="needle-content">
                         <div className="needle-num">{c.n}</div>
                         <div className="lbl"><b>{c.short}</b>{c.long}</div>
