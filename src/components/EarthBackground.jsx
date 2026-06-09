@@ -77,8 +77,10 @@ export default function EarthBackground() {
 
     const onMouseDown = e => {
       if (INTERACTIVE.includes(e.target.tagName)) return
+      e.preventDefault()
       isDragging = true; prevX = e.clientX; prevY = e.clientY; velX = 0; velY = 0
       document.body.style.cursor = 'grabbing'
+      document.body.style.userSelect = 'none'
     }
     const onMouseMove = e => {
       if (!isDragging) return
@@ -91,6 +93,7 @@ export default function EarthBackground() {
     const onMouseUp = () => {
       isDragging = false
       document.body.style.cursor = ''
+      document.body.style.userSelect = ''
     }
 
     const onTouchStart = e => {
