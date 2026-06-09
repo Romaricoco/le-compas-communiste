@@ -199,8 +199,8 @@ input, textarea { font-family: inherit; }
 }
 .status * { color: #ffffff !important; }
 @keyframes alert-pulse {
-  0%, 49% { background: #cc2200; color: #fff !important; box-shadow: 0 0 18px rgba(255,50,0,0.9); }
-  50%, 100% { background: #000; color: #ff2200 !important; box-shadow: 0 0 18px rgba(255,50,0,0.3); }
+  0%, 49% { opacity: 1; }
+  50%, 100% { opacity: 0.15; }
 }
 .status .dot { width: 7px; height: 7px; background: #19c37d; border-radius: 50%; animation: cc-pulse 1.6s ease-in-out infinite; }
 .ios-banner {
