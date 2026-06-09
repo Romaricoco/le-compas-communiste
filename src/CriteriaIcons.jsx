@@ -1,48 +1,16 @@
-const Icon = ({ children }) => (
-  <svg viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"
-    style={{ width: 52, height: 52 }}>
-    {children}
+const Flag = () => (
+  <svg viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"
+    style={{ width: 44, height: 44 }}>
+    <rect width="52" height="52" rx="4" fill="#1a3a6e"/>
+    <line x1="13" y1="8" x2="13" y2="44" stroke="#e8e8f0" strokeWidth="2.5" strokeLinecap="round"/>
+    <path d="M13 12 L38 12 L32 22 L38 32 L13 32 Z" fill="#cc2200"/>
   </svg>
 );
 
-export const IconPropriete = () => (
-  <Icon>
-    <rect x="8" y="20" width="44" height="28" rx="2" stroke="#e8e8f0" strokeWidth="2.5"/>
-    <path d="M20 20 V14 A10 10 0 0 1 40 14 V20" stroke="#e8e8f0" strokeWidth="2.5" strokeLinecap="round"/>
-    <circle cx="30" cy="34" r="5" stroke="#cc2200" strokeWidth="2.5"/>
-    <line x1="30" y1="39" x2="30" y2="44" stroke="#cc2200" strokeWidth="2.5" strokeLinecap="round"/>
-  </Icon>
-);
-
-export const IconHierarchie = () => (
-  <Icon>
-    <circle cx="30" cy="12" r="7" stroke="#e8e8f0" strokeWidth="2.5"/>
-    <line x1="30" y1="19" x2="30" y2="34" stroke="#e8e8f0" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="30" y1="28" x2="18" y2="38" stroke="#e8e8f0" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="30" y1="28" x2="42" y2="38" stroke="#e8e8f0" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="30" y1="34" x2="22" y2="48" stroke="#e8e8f0" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="30" y1="34" x2="38" y2="48" stroke="#e8e8f0" strokeWidth="2.5" strokeLinecap="round"/>
-    <line x1="12" y1="42" x2="48" y2="42" stroke="#cc2200" strokeWidth="1.5" strokeDasharray="3 3"/>
-  </Icon>
-);
-
-export const IconEtat = () => (
-  <Icon>
-    <polygon points="30,6 54,52 6,52" stroke="#e8e8f0" strokeWidth="2.5" fill="none" strokeLinejoin="round"/>
-    <polygon points="30,12 33,20 41,20 35,25 37,33 30,28 23,33 25,25 19,20 27,20"
-      fill="#cc2200"/>
-  </Icon>
-);
-
-export const IconMonde = () => (
-  <Icon>
-    <circle cx="30" cy="30" r="22" stroke="#e8e8f0" strokeWidth="2.5"/>
-    <ellipse cx="30" cy="30" rx="11" ry="22" stroke="#e8e8f0" strokeWidth="1.5"/>
-    <line x1="8" y1="30" x2="52" y2="30" stroke="#e8e8f0" strokeWidth="1.5"/>
-    <line x1="12" y1="18" x2="48" y2="18" stroke="#e8e8f0" strokeWidth="1"/>
-    <line x1="12" y1="42" x2="48" y2="42" stroke="#e8e8f0" strokeWidth="1"/>
-  </Icon>
-);
+export const IconPropriete  = () => <Flag />;
+export const IconHierarchie = () => <Flag />;
+export const IconEtat       = () => <Flag />;
+export const IconMonde      = () => <Flag />;
 
 export const CRITERIA_ICONS = {
   abolition_propriete_privee: <IconPropriete />,

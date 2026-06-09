@@ -254,16 +254,14 @@ input, textarea { font-family: inherit; }
 main {
   max-width: 1340px; margin: 0 auto; padding: 28px 40px 80px;
   display: grid; grid-template-columns: minmax(0, 1fr) 380px;
-  column-gap: 0;
+  column-gap: 180px;
   row-gap: 24px;
   align-items: start;
 }
 main > .scanner {
-  margin-right: 32px;
   border-right: 1px solid rgba(232,232,240,0.08);
 }
 main > .flux {
-  padding-left: 32px;
   border-left: 2px solid rgba(192,57,43,0.4);
 }
 
