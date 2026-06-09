@@ -106,9 +106,16 @@ export default function EarthBackground() {
       prevX = e.touches[0].clientX; prevY = e.touches[0].clientY
     }
 
+    // Zoom with wheel
+    const onWheel = e => {
+      if (INTERACTIVE.includes(e.target.tagName)) return
+      camera.position.z = Math.min(6, Math.max(1.2, camera.position.z + e.deltaY * 0.003))
+    }
+
     window.addEventListener('mousedown', onMouseDown)
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('wheel', onWheel, { passive: true })
     window.addEventListener('touchstart', onTouchStart, { passive: true })
     window.addEventListener('touchmove', onTouchMove, { passive: true })
     window.addEventListener('touchend', onMouseUp)
@@ -141,6 +148,7 @@ export default function EarthBackground() {
       window.removeEventListener('mousedown', onMouseDown)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('wheel', onWheel)
       window.removeEventListener('touchstart', onTouchStart)
       window.removeEventListener('touchmove', onTouchMove)
       window.removeEventListener('touchend', onMouseUp)
