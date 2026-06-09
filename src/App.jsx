@@ -24,7 +24,7 @@ function resizeImage(file, maxWidth = 800) {
 const CRITERIA = [
   { id: 'abolition_propriete_privee', n: 'I',   short: 'Propriété',  long: 'Abolition de la propriété privée car la propriété privée protège les riches et maintient les inégalités !' },
   { id: 'egalite_travail',            n: 'II',  short: 'Hiérarchie', long: 'Fin de la hiérarchie entre travail manuel et intellectuel' },
-  { id: 'rapport_etat_capital',        n: 'III', short: 'État',       long: "Dissolution des États et des partis au profit de la délibération locale libre et égalitaire" },
+  { id: 'rapport_etat_capital',        n: 'III', short: 'État',       long: "L'État ou l'institution sert-il les travailleurs contre le capital, ou protège-t-il les intérêts de la bourgeoisie ?" },
   { id: 'horizon_mondial',            n: 'IV',  short: 'Monde',      long: "Le Monde comme seul horizon politique car il n'y a qu'un seul Monde !" },
 ];
 
