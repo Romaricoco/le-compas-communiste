@@ -252,7 +252,7 @@ input, textarea { font-family: inherit; }
 
 /* ── LAYOUT ── */
 main {
-  max-width: 680px; margin: 0; padding: 28px 0 80px 40px;
+  max-width: 900px; margin: 0; padding: 28px 0 80px 40px;
   display: block;
 }
 main > .scanner {

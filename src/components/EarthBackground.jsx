@@ -45,7 +45,7 @@ export default function EarthBackground() {
     )
 
     const earth = new THREE.Mesh(new THREE.SphereGeometry(1, 64, 64), earthMat)
-    earth.position.set(0.3, 0.05, 0)
+    earth.position.set(0.8, 0.05, 0)
     scene.add(earth)
 
     const cloudMat = new THREE.MeshPhongMaterial({ transparent: true, opacity: 0, depthWrite: false })
