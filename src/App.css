@@ -148,6 +148,15 @@ input, textarea { font-family: inherit; }
   .hero-status { display: none; }
 }
 
+/* ── EARTH SPACER ── */
+.earth-spacer {
+  height: 520px;
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  .earth-spacer { height: 320px; }
+}
+
 /* ── HEADER ── */
 .topbar {
   background: #0d0d1a; color: var(--ink);
