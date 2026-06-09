@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import Game from './Game.jsx';
 import { CRITERIA_ICONS } from './CriteriaIcons.jsx';
+import EarthBackground from './components/EarthBackground.jsx';
 
 function resizeImage(file, maxWidth = 800) {
   return new Promise((resolve) => {
@@ -194,6 +195,8 @@ export default function App() {
 
   return (
     <>
+      <EarthBackground />
+      <div className="app-content">
       <header className="topbar">
         <div className="brand">
           <div className="mark">★</div>
@@ -257,19 +260,7 @@ export default function App() {
         </main>
       )}
 
-      {view === 'compas' && (
-        <div className="globe-hero">
-          <div className="earth-atmosphere"></div>
-          <div className="earth">
-            <div className="earth-continents"></div>
-            <div className="earth-grid"></div>
-            <div className="earth-glow"></div>
-          </div>
-          <div className="globe-tagline">· Un seul monde ·</div>
-        </div>
-      )}
-
-      {view === 'compas' && <main>
+{view === 'compas' && <main>
         <section className="scanner">
           <div className="scanner-head">
             <div className="num">·· Boussole n° <b>01</b> ·· Scan ··</div>
@@ -472,6 +463,7 @@ export default function App() {
           <span>GitHub</span><span>RSS</span><span>compas-communiste.fr</span>
         </div>
       </footer>
+      </div>
     </>
   );
 }
