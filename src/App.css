@@ -150,11 +150,11 @@ input, textarea { font-family: inherit; }
 
 /* ── EARTH SPACER ── */
 .earth-spacer {
-  height: 520px;
+  height: 160px;
   pointer-events: none;
 }
 @media (max-width: 640px) {
-  .earth-spacer { height: 320px; }
+  .earth-spacer { height: 80px; }
 }
 
 /* ── HEADER ── */
