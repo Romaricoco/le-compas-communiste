@@ -230,6 +230,8 @@ export default function App() {
         <span className="jaures-author">— Jean Jaurès</span>
       </div>
 
+      {view === 'compas' && <div className="earth-spacer" />}
+
       {view === 'jeu' && (
         <main className="game-main">
           <Game />
