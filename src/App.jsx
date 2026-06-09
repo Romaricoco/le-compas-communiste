@@ -196,7 +196,7 @@ export default function App() {
   return (
     <>
       <EarthBackground />
-      <div className="app-content">
+      <div style={{ position: 'relative', zIndex: 2 }}>
       <header className="topbar">
         <div className="brand">
           <div className="mark">★</div>
