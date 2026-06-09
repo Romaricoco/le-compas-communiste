@@ -305,7 +305,7 @@ export default function App() {
                     state === 'scanning' ? '· · ·' :
                     state === 'done'
                       ? (scan.result[c.id] === 'communist' ? '● Commun' : '● Capital')
-                      : 'à scanner';
+                      : null;
                   return (
                     <div key={c.id} className={cls}>
                       <div className="needle-art">{CRITERIA_ICONS[c.id]}</div>
