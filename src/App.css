@@ -419,17 +419,13 @@ main > .scanner {
 }
 
 /* États verdict */
-.needle.communist { border-color: var(--red); }
-.needle.communist .needle-art { border-bottom-color: var(--paper-deep); }
-.needle.communist .needle-content { background: var(--red); }
-.needle.communist .needle-num, .needle.communist .lbl, .needle.communist .lbl b { color: var(--paper); }
-.needle.communist .verdict { background: var(--ink); color: var(--paper); border-color: var(--paper-deep); }
+.needle.communist { border-color: var(--red); background: rgba(192,57,43,0.55); }
+.needle.communist .needle-num, .needle.communist .lbl, .needle.communist .lbl b { color: #fff; text-shadow: none; }
+.needle.communist .verdict { background: rgba(255,255,255,0.2); color: #fff; }
 
-.needle.capitalist { border-color: var(--blue); }
-.needle.capitalist .needle-art { border-bottom-color: var(--paper-deep); }
-.needle.capitalist .needle-content { background: var(--blue); }
-.needle.capitalist .needle-num, .needle.capitalist .lbl, .needle.capitalist .lbl b { color: var(--paper); }
-.needle.capitalist .verdict { background: var(--paper); color: var(--blue); border-color: var(--paper-deep); }
+.needle.capitalist { border-color: var(--blue); background: rgba(41,128,185,0.55); }
+.needle.capitalist .needle-num, .needle.capitalist .lbl, .needle.capitalist .lbl b { color: #fff; text-shadow: none; }
+.needle.capitalist .verdict { background: rgba(255,255,255,0.2); color: #fff; }
 
 .needle.scanning .needle-art {
   background: repeating-linear-gradient(135deg, #1a1a1a 0 10px, var(--ink) 10px 20px);
