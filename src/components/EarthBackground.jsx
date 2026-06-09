@@ -73,7 +73,13 @@ export default function EarthBackground() {
     let prevX = 0, prevY = 0
     let velX = 0, velY = 0
 
-    const onMouseDown = e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; velX = 0; velY = 0 }
+    const INTERACTIVE = ['INPUT', 'BUTTON', 'TEXTAREA', 'SELECT', 'A']
+
+    const onMouseDown = e => {
+      if (INTERACTIVE.includes(e.target.tagName)) return
+      isDragging = true; prevX = e.clientX; prevY = e.clientY; velX = 0; velY = 0
+      document.body.style.cursor = 'grabbing'
+    }
     const onMouseMove = e => {
       if (!isDragging) return
       velX = (e.clientX - prevX) * 0.005
@@ -82,9 +88,15 @@ export default function EarthBackground() {
       earth.rotation.x += velY
       prevX = e.clientX; prevY = e.clientY
     }
-    const onMouseUp = () => { isDragging = false }
+    const onMouseUp = () => {
+      isDragging = false
+      document.body.style.cursor = ''
+    }
 
-    const onTouchStart = e => { isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY }
+    const onTouchStart = e => {
+      if (INTERACTIVE.includes(e.target.tagName)) return
+      isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY
+    }
     const onTouchMove = e => {
       if (!isDragging) return
       velX = (e.touches[0].clientX - prevX) * 0.005
@@ -97,8 +109,8 @@ export default function EarthBackground() {
     window.addEventListener('mousedown', onMouseDown)
     window.addEventListener('mousemove', onMouseMove)
     window.addEventListener('mouseup', onMouseUp)
-    window.addEventListener('touchstart', onTouchStart)
-    window.addEventListener('touchmove', onTouchMove)
+    window.addEventListener('touchstart', onTouchStart, { passive: true })
+    window.addEventListener('touchmove', onTouchMove, { passive: true })
     window.addEventListener('touchend', onMouseUp)
 
     let raf
