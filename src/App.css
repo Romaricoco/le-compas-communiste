@@ -253,15 +253,18 @@ input, textarea { font-family: inherit; }
 /* ── LAYOUT ── */
 main {
   max-width: 1340px; margin: 0 auto; padding: 28px 40px 80px;
-  display: grid; grid-template-columns: minmax(0, 1fr) 380px;
-  column-gap: 720px;
-  row-gap: 24px;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
   align-items: start;
+  gap: 24px;
 }
 main > .scanner {
+  flex: 0 0 480px;
   border-right: 1px solid rgba(232,232,240,0.08);
 }
 main > .flux {
+  flex: 0 0 380px;
   border-left: 2px solid rgba(192,57,43,0.4);
 }
 
@@ -540,7 +543,8 @@ main > .flux {
 .foot .links { display: flex; gap: 18px; text-transform: uppercase; letter-spacing: 0.16em; }
 
 @media (max-width: 1020px) {
-  main { grid-template-columns: 1fr; }
+  main { flex-direction: column; }
+  main > .scanner, main > .flux { flex: none; width: 100%; }
   .flux-list { max-height: 460px; }
 }
 @media (max-width: 640px) {
