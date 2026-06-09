@@ -68,10 +68,49 @@ export default function EarthBackground() {
     starsGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12 })))
 
+    // Mouse drag state
+    let isDragging = false
+    let prevX = 0, prevY = 0
+    let velX = 0, velY = 0
+
+    const onMouseDown = e => { isDragging = true; prevX = e.clientX; prevY = e.clientY; velX = 0; velY = 0 }
+    const onMouseMove = e => {
+      if (!isDragging) return
+      velX = (e.clientX - prevX) * 0.005
+      velY = (e.clientY - prevY) * 0.005
+      earth.rotation.y += velX
+      earth.rotation.x += velY
+      prevX = e.clientX; prevY = e.clientY
+    }
+    const onMouseUp = () => { isDragging = false }
+
+    const onTouchStart = e => { isDragging = true; prevX = e.touches[0].clientX; prevY = e.touches[0].clientY }
+    const onTouchMove = e => {
+      if (!isDragging) return
+      velX = (e.touches[0].clientX - prevX) * 0.005
+      velY = (e.touches[0].clientY - prevY) * 0.005
+      earth.rotation.y += velX
+      earth.rotation.x += velY
+      prevX = e.touches[0].clientX; prevY = e.touches[0].clientY
+    }
+
+    window.addEventListener('mousedown', onMouseDown)
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('touchstart', onTouchStart)
+    window.addEventListener('touchmove', onTouchMove)
+    window.addEventListener('touchend', onMouseUp)
+
     let raf
     const animate = () => {
       raf = requestAnimationFrame(animate)
-      earth.rotation.y += 0.0008
+      if (!isDragging) {
+        // auto-rotate + inertia
+        velX *= 0.95
+        velY *= 0.95
+        earth.rotation.y += 0.0008 + velX
+        earth.rotation.x += velY
+      }
       clouds.rotation.y += 0.0003
       renderer.render(scene, camera)
     }
@@ -87,6 +126,12 @@ export default function EarthBackground() {
     return () => {
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', onResize)
+      window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+      window.removeEventListener('touchstart', onTouchStart)
+      window.removeEventListener('touchmove', onTouchMove)
+      window.removeEventListener('touchend', onMouseUp)
       renderer.dispose()
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement)
     }
@@ -94,7 +139,7 @@ export default function EarthBackground() {
 
   return (
     <>
-      <div ref={mountRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'none', background: '#000' }} />
+      <div ref={mountRef} style={{ position: 'fixed', inset: 0, zIndex: 0, pointerEvents: 'auto', background: '#000' }} />
       <div style={{
         position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
         background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, rgba(0,0,0,0) 35%, rgba(0,0,0,0.55) 75%, rgba(0,0,0,0.88) 100%)',
