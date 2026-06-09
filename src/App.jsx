@@ -36,16 +36,6 @@ const EXAMPLES = [
   "Sécurité sociale (1945)",
 ];
 
-const FLUX_STORAGE_KEY = 'compas:flux:v1';
-
-function loadFlux() {
-  try {
-    const raw = localStorage.getItem(FLUX_STORAGE_KEY);
-    if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr : [];
-  } catch { return []; }
-}
 
 export default function App() {
   const [title, setTitle] = useState('');
@@ -57,8 +47,6 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [scan, setScan] = useState(null);
   const [error, setError] = useState(null);
-  const [flux, setFlux] = useState(loadFlux);
-  const [newId, setNewId] = useState(null);
   const [pendingItem, setPendingItem] = useState(null);
   const [installPrompt, setInstallPrompt] = useState(null);
   const [installed, setInstalled] = useState(false);
@@ -90,10 +78,6 @@ export default function App() {
     sessionStorage.setItem('ios-banner-dismissed', '1');
     setShowIosBanner(false);
   };
-
-  useEffect(() => {
-    try { localStorage.setItem(FLUX_STORAGE_KEY, JSON.stringify(flux)); } catch {}
-  }, [flux]);
 
   const reset = () => { setScan(null); setError(null); setPendingItem(null); };
 
@@ -158,40 +142,12 @@ export default function App() {
     );
   };
 
-  const handlePublish = () => {
-    if (!scan) return;
-    const id = pendingItem?.id || Date.now();
-    const today = new Date().toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-    const label = mode === 'video'
-      ? ('▶ ' + videoUrl.replace(/https?:\/\/(www\.)?/, '').slice(0, 40))
-      : title.trim();
-    setFlux(prev => [{
-      id,
-      title: label,
-      capitalist: scan.capitalist,
-      communist: 100 - scan.capitalist,
-      author: 'Vous',
-      date: today,
-      justification: scan.result.justification,
-    }, ...prev]);
-    setNewId(id);
-    setTitle('');
-    setVideoUrl('');
-    setScan(null);
-    setError(null);
-    setPendingItem(null);
-  };
-
-  const removeFlux = (id) => setFlux(prev => prev.filter(it => it.id !== id));
-
   const state = loading ? 'scanning' : scan ? 'done' : 'idle';
   const status = state === 'scanning'
     ? '// scan en cours…'
     : state === 'done'
       ? `// verdict : ${scan.capitalist < 50 ? 'PENCHE COMMUN' : scan.capitalist > 50 ? 'PENCHE CAPITAL' : 'ÉQUILIBRÉ'}`
       : '// en attente d\'une idée';
-
-  const fluxCount = flux.length + (pendingItem ? 1 : 0);
 
   return (
     <>
@@ -398,7 +354,6 @@ export default function App() {
                   )}
 
                   <div className="actions">
-                    <button onClick={handlePublish}>▸ Publier dans le flux</button>
                     <button className="ghost" onClick={reset}>↺ Scanner autre chose</button>
                   </div>
                 </>
@@ -407,56 +362,6 @@ export default function App() {
           </div>
         </section>
 
-        <aside className="flux">
-          <div className="flux-head">
-            <h3>▤ Flux communautaire</h3>
-            <span className="count">{fluxCount} analyse{fluxCount > 1 ? 's' : ''}</span>
-          </div>
-          <div className="flux-list">
-            {pendingItem && (
-              <article className={`card pending-card ${pendingItem.status}`}>
-                <div className="row1">
-                  <div className="title">{pendingItem.title}</div>
-                  <div className="date">à l'instant</div>
-                </div>
-                <div className="pending-status">
-                  {pendingItem.status === 'scanning' && '⟳ Analyse en cours…'}
-                  {pendingItem.status === 'ready'    && '✓ Prête — publie pour enregistrer'}
-                  {pendingItem.status === 'error'    && '⚠ Analyse échouée'}
-                </div>
-              </article>
-            )}
-            {flux.length === 0 && !pendingItem ? (
-              <div className="flux-empty">
-                <div className="empty-icon">▤</div>
-                <div className="empty-title">Aucun scan encore.</div>
-                <div className="empty-sub">Tes analyses publiées s'empileront ici — local, sur ta machine.</div>
-              </div>
-            ) : flux.map(item => (
-              <article key={item.id} className={'card' + (item.id === newId ? ' new' : '')}>
-                <div className="row1">
-                  <div className="title">{item.title}</div>
-                  <div className="date">{item.date}</div>
-                </div>
-                <div className="bar">
-                  <div className="cap" style={{ width: `${item.capitalist}%` }}></div>
-                  <div className="com" style={{ width: `${item.communist}%` }}></div>
-                </div>
-                <div className="pcts">
-                  <span className="cap-l">▲ Capital · {item.capitalist}%</span>
-                  <span className="com-l">{item.communist}% · Commun ▲</span>
-                </div>
-                {item.justification && (
-                  <div className="just">«&nbsp;{item.justification}&nbsp;»</div>
-                )}
-                <div className="row-foot">
-                  <span className="author">par <b>{item.author}</b></span>
-                  <button className="del" onClick={() => removeFlux(item.id)} title="Retirer du flux">✕</button>
-                </div>
-              </article>
-            ))}
-          </div>
-        </aside>
       </main>}
 
       <footer className="foot">
