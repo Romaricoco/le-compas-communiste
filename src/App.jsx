@@ -293,7 +293,6 @@ export default function App() {
             )}
 
             {error && <div className="error">⚠️ {error}</div>}
-            {scan && <div style={{fontSize:14,color:'#ff0',background:'#000',padding:'8px',marginTop:'8px',wordBreak:'break-all',border:'2px solid red'}}>KEYS: {JSON.stringify(scan.result._debug_keys)}<br/>ETAT: "{scan.result.rapport_etat_capital}"</div>}
 
             <div className="needles">
               <div className="needles-head">
