@@ -150,24 +150,12 @@ export default function EarthBackground() {
     sputnikGroup.add(pole)
 
     const flagMat = new THREE.MeshBasicMaterial({ color: 0xcc0000, side: THREE.DoubleSide })
-    const flagGeo = new THREE.PlaneGeometry(0.1, 0.065)
+    const flagGeo = new THREE.PlaneGeometry(0.1, 0.065, 12, 6)
+    const flagOrigZ = new Float32Array(flagGeo.attributes.position.count)
+    for (let i = 0; i < flagOrigZ.length; i++) flagOrigZ[i] = flagGeo.attributes.position.getZ(i)
     const flag = new THREE.Mesh(flagGeo, flagMat)
     flag.position.set(0.05, 0.165, 0)
     sputnikGroup.add(flag)
-
-    // Étoile jaune sur le drapeau
-    const starShape = new THREE.Shape()
-    const starR = 0.018, starR2 = 0.008, starPts = 5
-    for (let i = 0; i < starPts * 2; i++) {
-      const r = i % 2 === 0 ? starR : starR2
-      const a = (i / (starPts * 2)) * Math.PI * 2 - Math.PI / 2
-      i === 0 ? starShape.moveTo(Math.cos(a) * r, Math.sin(a) * r) : starShape.lineTo(Math.cos(a) * r, Math.sin(a) * r)
-    }
-    starShape.closePath()
-    const starGeo = new THREE.ShapeGeometry(starShape)
-    const star = new THREE.Mesh(starGeo, new THREE.MeshBasicMaterial({ color: 0xffdd00, side: THREE.DoubleSide }))
-    star.position.set(0.02, 0.168, 0.001)
-    sputnikGroup.add(star)
 
     // Orbite inclinée autour de la Terre
     const ORBIT_RADIUS = 1.55
@@ -192,9 +180,16 @@ export default function EarthBackground() {
       const oz = Math.sin(orbitAngle) * Math.cos(ORBIT_TILT) * ORBIT_RADIUS
       sputnikGroup.position.set(earth.position.x + ox, earth.position.y + oy, earth.position.z + oz)
       sputnikGroup.rotation.y += 0.02
-      // Drapeau face caméra
-      flag.rotation.y = -sputnikGroup.rotation.y
-      star.rotation.y = -sputnikGroup.rotation.y
+
+      // Ondulation du drapeau
+      const pos2 = flagGeo.attributes.position
+      const t2 = performance.now() * 0.003
+      for (let i = 0; i < pos2.count; i++) {
+        const x = pos2.getX(i)
+        const wave = Math.sin(x * 30 + t2) * 0.012 * ((x + 0.05) / 0.1)
+        pos2.setZ(i, flagOrigZ[i] + wave)
+      }
+      pos2.needsUpdate = true
 
       renderer.render(scene, camera)
     }
