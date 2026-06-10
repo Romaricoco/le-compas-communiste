@@ -174,7 +174,7 @@ export default function App() {
         {installPrompt && !installed && (
           <button className="install-btn" onClick={handleInstall}>⬇ Installer l'app</button>
         )}
-        <MusicPlayer src="/music.mp3" />
+        <MusicPlayer />
         <div className="status">
           <span className="dot"></span>
           {installed ? 'App installée ✓' : 'Prototype v2.0 · IA active'}
