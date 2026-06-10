@@ -123,17 +123,79 @@ export default function EarthBackground() {
     window.addEventListener('touchmove', onTouchMove, { passive: true })
     window.addEventListener('touchend', onMouseUp)
 
+    // — Sputnik —
+    const sputnikGroup = new THREE.Group()
+    scene.add(sputnikGroup)
+
+    // Corps métallique
+    const sputnikMat = new THREE.MeshPhongMaterial({ color: 0xcccccc, specular: 0xffffff, shininess: 120 })
+    const sputnikBody = new THREE.Mesh(new THREE.SphereGeometry(0.06, 16, 16), sputnikMat)
+    sputnikGroup.add(sputnikBody)
+
+    // 4 antennes
+    const antennaMat = new THREE.MeshPhongMaterial({ color: 0xaaaaaa, shininess: 60 })
+    const antennaAngles = [0, Math.PI / 2, Math.PI, Math.PI * 1.5]
+    antennaAngles.forEach(angle => {
+      const ant = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.002, 0.18, 6), antennaMat)
+      ant.position.set(Math.cos(angle) * 0.04, -0.07, Math.sin(angle) * 0.04)
+      ant.rotation.z = (Math.cos(angle) * 0.5)
+      ant.rotation.x = (Math.sin(angle) * 0.5)
+      sputnikGroup.add(ant)
+    })
+
+    // Drapeau rouge (mât + tissu)
+    const poleMat = new THREE.MeshPhongMaterial({ color: 0xaaaaaa })
+    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.003, 0.003, 0.14, 6), poleMat)
+    pole.position.set(0, 0.12, 0)
+    sputnikGroup.add(pole)
+
+    const flagMat = new THREE.MeshBasicMaterial({ color: 0xcc0000, side: THREE.DoubleSide })
+    const flagGeo = new THREE.PlaneGeometry(0.1, 0.065)
+    const flag = new THREE.Mesh(flagGeo, flagMat)
+    flag.position.set(0.05, 0.165, 0)
+    sputnikGroup.add(flag)
+
+    // Étoile jaune sur le drapeau
+    const starShape = new THREE.Shape()
+    const starR = 0.018, starR2 = 0.008, starPts = 5
+    for (let i = 0; i < starPts * 2; i++) {
+      const r = i % 2 === 0 ? starR : starR2
+      const a = (i / (starPts * 2)) * Math.PI * 2 - Math.PI / 2
+      i === 0 ? starShape.moveTo(Math.cos(a) * r, Math.sin(a) * r) : starShape.lineTo(Math.cos(a) * r, Math.sin(a) * r)
+    }
+    starShape.closePath()
+    const starGeo = new THREE.ShapeGeometry(starShape)
+    const star = new THREE.Mesh(starGeo, new THREE.MeshBasicMaterial({ color: 0xffdd00, side: THREE.DoubleSide }))
+    star.position.set(0.02, 0.168, 0.001)
+    sputnikGroup.add(star)
+
+    // Orbite inclinée autour de la Terre
+    const ORBIT_RADIUS = 1.55
+    const ORBIT_TILT = Math.PI / 5
+    let orbitAngle = 0
+
     let raf
     const animate = () => {
       raf = requestAnimationFrame(animate)
       if (!isDragging) {
-        // auto-rotate + inertia
         velX *= 0.95
         velY *= 0.95
         earth.rotation.y += 0.0008 + velX
         earth.rotation.x += velY
       }
       clouds.rotation.y += 0.0003
+
+      // Sputnik orbit
+      orbitAngle += 0.004
+      const ox = Math.cos(orbitAngle) * ORBIT_RADIUS
+      const oy = Math.sin(orbitAngle) * Math.sin(ORBIT_TILT) * ORBIT_RADIUS
+      const oz = Math.sin(orbitAngle) * Math.cos(ORBIT_TILT) * ORBIT_RADIUS
+      sputnikGroup.position.set(earth.position.x + ox, earth.position.y + oy, earth.position.z + oz)
+      sputnikGroup.rotation.y += 0.02
+      // Drapeau face caméra
+      flag.rotation.y = -sputnikGroup.rotation.y
+      star.rotation.y = -sputnikGroup.rotation.y
+
       renderer.render(scene, camera)
     }
     animate()
