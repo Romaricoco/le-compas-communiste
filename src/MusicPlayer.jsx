@@ -76,10 +76,15 @@ export default function MusicPlayer() {
   };
 
   useEffect(() => {
-    const unlock = () => { start(); document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
-    document.addEventListener('click', unlock);
-    document.addEventListener('touchstart', unlock);
-    return () => { document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
+    const unlock = () => {
+      if (!ctxRef.current) start();
+    };
+    document.addEventListener('click', unlock, { once: true });
+    document.addEventListener('touchstart', unlock, { once: true });
+    return () => {
+      document.removeEventListener('click', unlock);
+      document.removeEventListener('touchstart', unlock);
+    };
   }, []);
 
   const toggle = () => playing ? stop() : start();
