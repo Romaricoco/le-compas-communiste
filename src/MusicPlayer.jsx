@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 const F4=349, G4=392, A4=440, Bb4=466, C5=523, D5=587, Eb5=622, F5=698;
 const MELODY = [
@@ -74,6 +74,13 @@ export default function MusicPlayer() {
     loop(ctx.currentTime + 0.05);
     setPlaying(true);
   };
+
+  useEffect(() => {
+    const unlock = () => { start(); document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
+    document.addEventListener('click', unlock);
+    document.addEventListener('touchstart', unlock);
+    return () => { document.removeEventListener('click', unlock); document.removeEventListener('touchstart', unlock); };
+  }, []);
 
   const toggle = () => playing ? stop() : start();
 
