@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import './App.css';
+import MusicPlayer from './MusicPlayer.jsx';
 import Game from './Game.jsx';
 import { CRITERIA_ICONS } from './CriteriaIcons.jsx';
 import EarthBackground from './components/EarthBackground.jsx';
@@ -173,6 +174,7 @@ export default function App() {
         {installPrompt && !installed && (
           <button className="install-btn" onClick={handleInstall}>⬇ Installer l'app</button>
         )}
+        <MusicPlayer src="/music.mp3" />
         <div className="status">
           <span className="dot"></span>
           {installed ? 'App installée ✓' : 'Prototype v2.0 · IA active'}
