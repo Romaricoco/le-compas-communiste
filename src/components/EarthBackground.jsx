@@ -68,7 +68,15 @@ export default function EarthBackground() {
     starsGeo.setAttribute('position', new THREE.BufferAttribute(pos, 3))
     scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12 })))
 
-    // Mouse drag state
+    // — Lénine en apesanteur —
+    const lenineTex = loader.load('/lenine.jpg')
+    const lenine = new THREE.Mesh(
+      new THREE.PlaneGeometry(0.38, 0.48),
+      new THREE.MeshBasicMaterial({ map: lenineTex, transparent: true, depthWrite: false })
+    )
+    lenine.position.set(-1.4, 0.6, 0.5)
+    scene.add(lenine)
+    let lenineT = 0
     let isDragging = false
     let prevX = 0, prevY = 0
     let velX = 0, velY = 0
@@ -180,6 +188,13 @@ export default function EarthBackground() {
       const oz = Math.sin(orbitAngle) * Math.cos(ORBIT_TILT) * ORBIT_RADIUS
       sputnikGroup.position.set(earth.position.x + ox, earth.position.y + oy, earth.position.z + oz)
       sputnikGroup.rotation.y += 0.02
+
+      // Lénine dérive lentement en apesanteur
+      lenineT += 0.004
+      lenine.position.y = 0.6 + Math.sin(lenineT * 0.7) * 0.12
+      lenine.position.x = -1.4 + Math.sin(lenineT * 0.4) * 0.08
+      lenine.rotation.z = Math.sin(lenineT * 0.5) * 0.08
+      lenine.lookAt(camera.position)
 
       // Ondulation du drapeau
       const pos2 = flagGeo.attributes.position
