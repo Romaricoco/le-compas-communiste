@@ -260,7 +260,7 @@ export default function Tribune({ onExit }) {
     let data;
     try {
       data = await callTribuneAPI(currentCause, argumentText, transcriptRef.current, convictionsRef.current, currentRound);
-      if (!Array.isArray(data.lines)) throw new Error(‘malformed response’);
+      if (!Array.isArray(data.lines)) throw new Error("malformed response");
     } catch (err) {
       const msg = String(err.message || err);
       setGameError(`${msg}`);
