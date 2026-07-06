@@ -154,10 +154,20 @@ export default function Tribune({ onExit }) {
   const [imgFail, setImgFail] = useState({});
   const audioRef = useRef(null);
   const voiceUrlsRef = useRef({});
-  const currentVoiceRef = useRef(null);
+  const voicePlayerRef = useRef(null);
 
   const enter = useCallback(async () => {
     audioRef.current = createAudioEngine();
+
+    // iOS n'autorise le son que pendant un geste utilisateur :
+    // on débloque UN lecteur ici (clic) et on le réutilise pour
+    // toutes les voix de la scène.
+    const player = new Audio();
+    player.playsInline = true;
+    player.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+    player.play().catch(() => {});
+    voicePlayerRef.current = player;
+
     setPhase('loading');
 
     const lines = SCRIPT
@@ -189,7 +199,7 @@ export default function Tribune({ onExit }) {
   }, []);
 
   const replay = useCallback(() => {
-    currentVoiceRef.current?.pause();
+    voicePlayerRef.current?.pause();
     setEnded(false);
     setLine(null);
     setLineIdx(-1);
@@ -203,12 +213,12 @@ export default function Tribune({ onExit }) {
 
     const playVoice = (i) => {
       const url = voiceUrlsRef.current[i];
-      if (!url) return;
-      currentVoiceRef.current?.pause();
-      const audio = new Audio(url);
-      audio.volume = 0.92;
-      audio.play().catch(() => {});
-      currentVoiceRef.current = audio;
+      const player = voicePlayerRef.current;
+      if (!url || !player) return;
+      player.pause();
+      player.src = url;
+      player.volume = 0.92;
+      player.play().catch(() => {});
     };
 
     const next = () => {
@@ -223,7 +233,7 @@ export default function Tribune({ onExit }) {
     };
 
     const start = setTimeout(next, 2000);
-    return () => { clearTimeout(start); clearTimeout(tid); currentVoiceRef.current?.pause(); };
+    return () => { clearTimeout(start); clearTimeout(tid); voicePlayerRef.current?.pause(); };
   }, [phase, take]);
 
   useEffect(() => {
