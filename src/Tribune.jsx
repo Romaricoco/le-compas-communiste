@@ -230,7 +230,8 @@ export default function Tribune({ onExit }) {
       if (!Array.isArray(data.lines)) throw new Error("malformed response");
     } catch (err) {
       const msg = String(err.message || err);
-      setGameError(`${msg}`);
+      console.error('Tribune error:', msg);
+      setGameError(msg);
       setNeedMistralKey(true);
       setPhase('speak');
       return;

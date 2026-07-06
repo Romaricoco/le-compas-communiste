@@ -96,13 +96,17 @@ ${String(argument).slice(0, 600)}`;
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      return res.status(response.status).json({ error: 'Erreur Mistral', detail: detail.slice(0, 300) });
+      const errorMsg = detail ? detail.slice(0, 300) : `HTTP ${response.status}`;
+      console.error('Mistral error:', response.status, errorMsg);
+      return res.status(response.status).json({ error: 'Mistral error: ' + errorMsg });
     }
 
     const data = await response.json();
     const parsed = JSON.parse(data.choices[0].message.content);
     return res.status(200).json(parsed);
   } catch (err) {
-    return res.status(500).json({ error: 'Erreur serveur', detail: String(err).slice(0, 200) });
+    const errMsg = String(err).slice(0, 200);
+    console.error('Tribune error:', errMsg);
+    return res.status(500).json({ error: 'Erreur: ' + errMsg });
   }
 }
