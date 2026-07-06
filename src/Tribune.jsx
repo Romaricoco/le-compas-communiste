@@ -254,8 +254,8 @@ export default function Tribune({ onExit }) {
     setGameError(null);
     setPhase('playing');
     setCurrent({ dida: currentRound === 1
-      ? 'La salle se tait. Vous montez à la tribune.'
-      : 'L’assemblée pèse vos mots…' });
+      ? "La salle se tait. Vous montez a la tribune."
+      : "L assemblee pese vos mots..." });
 
     let data;
     try {
@@ -265,7 +265,7 @@ export default function Tribune({ onExit }) {
       const msg = String(err.message || err);
       setGameError(`${msg}`);
       setNeedMistralKey(true);
-      setPhase(‘speak’);
+      setPhase('speak');
       return;
     }
 
@@ -456,7 +456,7 @@ export default function Tribune({ onExit }) {
       {phase === 'speak' && (
         <div className="tr-door">
           <div className="tr-form-round">TOUR {round} / {ROUNDS}</div>
-          <div className="tr-form-label">L'ASSEMBLÉE ATTEND VOTRE RÉPONSE</div>
+          <div className="tr-form-label">L ASSEMBLEE ATTEND VOTRE REPONSE</div>
           {transcriptRef.current.length > 0 && (
             <div className="tr-lastwords">
               {transcriptRef.current.slice(-2).filter(t => t.by !== 'joueur').map((t, i) => (
@@ -505,7 +505,7 @@ export default function Tribune({ onExit }) {
       {/* État de l'assemblée entre les tours */}
       {phase === 'state' && (
         <div className="tr-door">
-          <div className="tr-form-label">L'ÉTAT DE L'ASSEMBLÉE</div>
+          <div className="tr-form-label">ETAT DE L ASSEMBLEE</div>
           <div className="tr-statecard">
             {MEMBERS.map(m => (
               <div key={m.id} className="tr-staterow">
@@ -525,7 +525,7 @@ export default function Tribune({ onExit }) {
       {/* Verdict */}
       {phase === 'verdict' && (
         <div className="tr-endcard">
-          <div className="tr-end-title">{won ? 'L’ASSEMBLÉE SE LÈVE' : convincedCount === 3 ? 'LA SALLE EST PARTAGÉE' : 'REDESCENDS, CAMARADE'}</div>
+          <div className="tr-end-title">{won ? "L ASSEMBLEE SE LEVE" : convincedCount === 3 ? "LA SALLE EST PARTAGEE" : "REDESCENDS, CAMARADE"}</div>
           <div className="tr-end-sub">{convincedCount} témoin{convincedCount > 1 ? 's' : ''} sur 6 convaincu{convincedCount > 1 ? 's' : ''} — « {cause} »</div>
           <div className="tr-credits">
             {MEMBERS.map(m => (
