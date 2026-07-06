@@ -237,6 +237,16 @@
   border-radius: 2px;
   transition: width 0.3s ease;
 }
+.tr-load-error {
+  font-family: "Space Mono", monospace;
+  font-size: 12px;
+  letter-spacing: .1em;
+  color: #c96a5e;
+  max-width: 480px;
+  line-height: 1.9;
+  padding: 0 20px;
+  text-align: center;
+}
 
 /* ── Générique final : c'est ici que les noms tombent ─── */
 .tr-endcard {

@@ -34,19 +34,44 @@ const SCRIPT = [
 
 /* ── ElevenLabs TTS ──────────────────────────────────────── */
 async function fetchVoice(text, voiceId) {
-  if (!voiceId) return null;
-  try {
-    const res = await fetch('/api/tts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, voiceId }),
-    });
-    if (!res.ok) return null;
-    const blob = await res.blob();
-    return URL.createObjectURL(blob);
-  } catch {
-    return null;
+  if (!voiceId) return { error: 'pas de voix définie' };
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voiceId }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        return { url: URL.createObjectURL(blob) };
+      }
+      // 429 = trop de requêtes simultanées (plan gratuit) : on retente
+      if (res.status === 429) {
+        await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
+        continue;
+      }
+      let detail = '';
+      try { detail = (await res.json()).detail || ''; } catch { /* ignore */ }
+      return { error: `HTTP ${res.status} ${detail}`.trim() };
+    } catch (err) {
+      return { error: `réseau : ${String(err).slice(0, 120)}` };
+    }
   }
+  return { error: 'HTTP 429 — trop de requêtes' };
+}
+
+/* File d'attente : max 2 requêtes simultanées (limite ElevenLabs) */
+async function fetchAllVoices(items, onEach) {
+  const queue = [...items];
+  const workers = Array.from({ length: 2 }, async () => {
+    while (queue.length) {
+      const item = queue.shift();
+      const result = await fetchVoice(item.text, item.voiceId);
+      onEach(item, result);
+    }
+  });
+  await Promise.all(workers);
 }
 
 /* ── Moteur audio de fond (Web Audio, synthétisé) ────────── */
@@ -121,6 +146,7 @@ function createAudioEngine() {
 export default function Tribune({ onExit }) {
   const [phase, setPhase] = useState('door');   // door | loading | scene
   const [loadProgress, setLoadProgress] = useState(0);
+  const [loadError, setLoadError] = useState(null);
   const [line, setLine] = useState(null);
   const [lineIdx, setLineIdx] = useState(-1);
   const [ended, setEnded] = useState(false);
@@ -140,19 +166,26 @@ export default function Tribune({ onExit }) {
 
     const total = lines.length;
     let done = 0;
+    const errors = [];
     const member = id => MEMBERS.find(m => m.id === id);
 
-    await Promise.all(
-      lines.map(async ({ l, i }) => {
-        const m = member(l.sp);
-        const url = await fetchVoice(l.vo, m?.voice);
-        if (url) voiceUrlsRef.current[i] = url;
+    await fetchAllVoices(
+      lines.map(({ l, i }) => ({ text: l.vo, voiceId: member(l.sp)?.voice, idx: i, who: l.sp })),
+      (item, result) => {
+        if (result.url) voiceUrlsRef.current[item.idx] = result.url;
+        else errors.push(`${item.who} : ${result.error}`);
         done++;
         setLoadProgress(Math.round((done / total) * 100));
-      })
+      }
     );
 
-    setPhase('scene');
+    if (errors.length === total) {
+      // Aucune voix : on affiche la cause à l'écran avant de continuer
+      setLoadError(errors[0]);
+      setTimeout(() => setPhase('scene'), 8000);
+    } else {
+      setPhase('scene');
+    }
   }, []);
 
   const replay = useCallback(() => {
@@ -245,7 +278,14 @@ export default function Tribune({ onExit }) {
           <div className="tr-load-bar">
             <div className="tr-load-fill" style={{ width: `${loadProgress}%` }} />
           </div>
-          <div className="tr-door-note">{loadProgress}% — synthèse multilingue en cours</div>
+          {loadError ? (
+            <div className="tr-load-error">
+              VOIX INDISPONIBLES — {loadError}
+              <br />La scène continue en sous-titres.
+            </div>
+          ) : (
+            <div className="tr-door-note">{loadProgress}% — synthèse multilingue en cours</div>
+          )}
         </div>
       )}
 
