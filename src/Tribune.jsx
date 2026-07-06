@@ -260,15 +260,11 @@ export default function Tribune({ onExit }) {
     let data;
     try {
       data = await callTribuneAPI(currentCause, argumentText, transcriptRef.current, convictionsRef.current, currentRound);
-      if (!Array.isArray(data.lines)) throw new Error(‘réponse malformée’);
+      if (!Array.isArray(data.lines)) throw new Error(‘reponse malformee’);
     } catch (err) {
       const msg = String(err.message || err);
-      if (/mistral|401|403/i.test(msg)) {
-        setGameError(`Mistral indisponible. Colle ta clé.`);
-        setNeedMistralKey(true);
-      } else {
-        setGameError(`L’assemblée est injoignable (${msg.slice(0, 100)}). Réessaie.`);
-      }
+      setGameError(`${msg}`);
+      setNeedMistralKey(true);
       setPhase(‘speak’);
       return;
     }
@@ -360,7 +356,13 @@ export default function Tribune({ onExit }) {
     if (!k) return;
     try { localStorage.setItem('mistral_key', k); } catch { /* ignore */ }
     setNeedMistralKey(false);
-  }, [mistralKeyInput]);
+    setGameError(null);
+    setMistralKeyInput('');
+    // Relancer le round courant
+    if (phase === 'speak' && round && cause && argInput) {
+      runRound(argInput, round, cause);
+    }
+  }, [mistralKeyInput, phase, round, cause, argInput, runRound]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -476,7 +478,27 @@ export default function Tribune({ onExit }) {
           <button className="tr-door-btn" onClick={submitArg} disabled={argInput.trim().length < 8}>
             À la tribune
           </button>
-          {gameError && <div className="tr-load-error">{gameError}</div>}
+          {gameError && (
+            <div>
+              <div className="tr-load-error">{gameError}</div>
+              {needMistralKey && (
+                <div className="tr-keyform">
+                  <div className="tr-door-note">Colle ta clé Mistral (elle reste dans ton navigateur)</div>
+                  <input
+                    className="tr-keyinput"
+                    type="password"
+                    placeholder="sk_…"
+                    value={mistralKeyInput}
+                    onChange={e => setMistralKeyInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
+                  />
+                  <div className="tr-keyrow">
+                    <button className="tr-end-btn" onClick={submitMistralKey}>Valider</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
