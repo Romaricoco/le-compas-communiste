@@ -141,22 +141,60 @@ const getMistralKey = () => {
   try { return localStorage.getItem('mistral_key') || ''; } catch { return ''; }
 };
 
+const DEMO_RESPONSES = [
+  {
+    lines: [
+      { member: 'olga', vo: 'Konkretno, ne slova.', fr: 'Du concret, pas des paroles.' },
+      { member: 'diego', vo: 'Y ese estado? Quien lo controla?', fr: 'Et cet etat? Qui le controle?' },
+    ],
+    deltas: { olga: 5, diego: -10, wei: 0, amara: 8, john: -5, greta: 3 },
+    dida: 'Silence critique.',
+    fx: null,
+  },
+  {
+    lines: [
+      { member: 'wei', vo: 'Shengchan, liaogei shui?', fr: 'Production, pour qui?' },
+      { member: 'amara', vo: 'Solidaritate mondiale, pas seulement locale!', fr: 'Solidarite mondiale, pas seulement locale!' },
+    ],
+    deltas: { olga: 8, diego: 6, wei: 10, amara: 12, john: 4, greta: 5 },
+    dida: 'Murmures d approbation.',
+    fx: 'murmur',
+  },
+  {
+    lines: [
+      { member: 'john', vo: 'But will it put food on my table?', fr: 'Mais est-ce que ca va remplir mon assiette?' },
+      { member: 'greta', vo: 'Wo sind die Widerspruche in deinem Argument?', fr: 'Ou sont les contradictions dans ton argument?' },
+    ],
+    deltas: { olga: -5, diego: 3, wei: -2, amara: 5, john: 7, greta: -8 },
+    dida: null,
+    fx: null,
+  },
+];
+
 async function callTribuneAPI(cause, argument, transcript, convictions, round) {
   const mistralKey = getMistralKey();
-  const res = await fetch('/api/tribune', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      cause,
-      argument,
-      transcript,
-      convictions,
-      round,
-      mistralKey: mistralKey || undefined,
-    }),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  return await res.json();
+  try {
+    const res = await fetch('/api/tribune', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        cause,
+        argument,
+        transcript,
+        convictions,
+        round,
+        mistralKey: mistralKey || undefined,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn('Mistral failed, using demo response:', err.message);
+    return DEMO_RESPONSES[round % DEMO_RESPONSES.length];
+  }
 }
 
 /* ── Composant ───────────────────────────────────────────── */
