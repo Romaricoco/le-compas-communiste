@@ -8,8 +8,6 @@ import './Tribune.css';
    Les noms n'apparaissent qu'au générique final.
    ══════════════════════════════════════════════════════════ */
 
-const EL_KEY = import.meta.env.VITE_ELEVENLABS_KEY;
-
 const photoUrl = id => `https://unsplash.com/photos/${id}/download?force=true&w=640`;
 
 const MEMBERS = [
@@ -36,20 +34,13 @@ const SCRIPT = [
 
 /* ── ElevenLabs TTS ──────────────────────────────────────── */
 async function fetchVoice(text, voiceId) {
-  if (!EL_KEY || !voiceId) return null;
+  if (!voiceId) return null;
   try {
-    const res = await fetch(
-      `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`,
-      {
-        method: 'POST',
-        headers: { 'xi-api-key': EL_KEY, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text,
-          model_id: 'eleven_multilingual_v2',
-          voice_settings: { stability: 0.42, similarity_boost: 0.82, style: 0.45, use_speaker_boost: true },
-        }),
-      }
-    );
+    const res = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, voiceId }),
+    });
     if (!res.ok) return null;
     const blob = await res.blob();
     return URL.createObjectURL(blob);
