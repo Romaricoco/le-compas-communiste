@@ -35,6 +35,7 @@ function createAudioEngine() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
   const ctx = new AC();
+  ctx.resume().catch(() => {});
   const master = ctx.createGain();
   master.gain.value = 0.9;
   master.connect(ctx.destination);
@@ -97,12 +98,14 @@ function createAudioEngine() {
 
   // Montée de murmures (la salle réagit)
   const murmurSwell = () => {
+    ctx.resume().catch(() => {});
     murG.gain.setTargetAtTime(0.075, ctx.currentTime, 0.35);
     setTimeout(() => murG.gain.setTargetAtTime(0.014, ctx.currentTime, 1.4), 2400);
   };
 
   // Hourras : rugissement de foule + salve d'applaudissements
   const ovation = (intensity = 1) => {
+    ctx.resume().catch(() => {});
     const t0 = ctx.currentTime;
     const roar = noiseSrc();
     const rf = ctx.createBiquadFilter();
