@@ -267,6 +267,103 @@
 .tr-keyinput:focus { border-color: rgba(232,228,220,0.7); }
 .tr-keyrow { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 
+/* ── Écrans du jeu : cause, argument, état de la salle ─── */
+.tr-form-round {
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  letter-spacing: .34em;
+  color: rgba(216,213,207,0.35);
+}
+.tr-form-label {
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+  font-size: clamp(20px, 3.2vw, 34px);
+  letter-spacing: .3em;
+  text-indent: .3em;
+  color: #e8e4dc;
+  text-align: center;
+  padding: 0 16px;
+}
+.tr-textarea {
+  width: min(620px, 88vw);
+  padding: 16px 18px;
+  background: rgba(216,213,207,0.05);
+  border: 1px solid rgba(232,228,220,0.3);
+  color: #f2efe8;
+  font-family: Georgia, "Noto Serif", serif;
+  font-size: 16px;
+  line-height: 1.6;
+  resize: none;
+  outline: none;
+}
+.tr-textarea:focus { border-color: rgba(232,228,220,0.7); }
+.tr-textarea::placeholder { color: rgba(216,213,207,0.3); font-style: italic; }
+.tr-door-btn:disabled { opacity: .3; cursor: default; }
+
+.tr-lastwords {
+  display: flex; flex-direction: column;
+  gap: 8px;
+  max-width: min(620px, 88vw);
+}
+.tr-lastword {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: rgba(216,213,207,0.5);
+  line-height: 1.6;
+  text-align: center;
+}
+.tr-lastword-name {
+  font-family: "Space Mono", monospace;
+  font-style: normal;
+  font-size: 11px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: rgba(216,213,207,0.4);
+}
+
+.tr-statecard {
+  display: flex; flex-direction: column;
+  gap: 14px;
+  width: min(560px, 88vw);
+  animation: tr-fadein 1.2s ease both;
+}
+.tr-staterow {
+  display: grid;
+  grid-template-columns: 80px 1fr 110px;
+  align-items: center;
+  gap: 16px;
+}
+.tr-state-name {
+  font-family: "Oswald", sans-serif;
+  font-weight: 500;
+  font-size: 14px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: #e8e4dc;
+  text-align: right;
+}
+.tr-state-bar {
+  display: block;
+  height: 2px;
+  background: rgba(216,213,207,0.12);
+  overflow: hidden;
+}
+.tr-state-fill {
+  display: block;
+  height: 100%;
+  background: rgba(216,213,207,0.75);
+  transition: width 1.6s ease;
+}
+.tr-state-stance {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: rgba(216,213,207,0.45);
+}
+.tr-state-stance.s-conv { color: rgba(235,225,205,0.9); }
+.tr-state-stance.s-host { color: #c96a5e; }
+
 /* ── Générique final : c'est ici que les noms tombent ─── */
 .tr-endcard {
   position: absolute; inset: 0;

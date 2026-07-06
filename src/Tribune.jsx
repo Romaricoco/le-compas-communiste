@@ -2,10 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import './Tribune.css';
 
 /* ══════════════════════════════════════════════════════════
-   LA TRIBUNE — dispositif « témoins » (Reds, 1981)
-   Un visage en gros plan, décalé, sur noir absolu.
-   Lumière frontale dure. Aucun décor. La parole nue.
-   Les noms n'apparaissent qu'au générique final.
+   LA TRIBUNE — le jeu
+   Vous défendez une cause devant six témoins. Trois tours.
+   Convaincre — ou redescendre.
+   Esthétique « témoins » de Reds (1981) : visage en gros plan
+   décalé sur noir absolu, lumière dure, la parole nue.
    ══════════════════════════════════════════════════════════ */
 
 const photoUrl = id => `https://unsplash.com/photos/${id}/download?force=true&w=640`;
@@ -18,29 +19,20 @@ const MEMBERS = [
   { id: 'john',  name: 'John',  lang: 'English',  role: 'ouvrier sceptique',     photo: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX', side: 'l' },
   { id: 'greta', name: 'Greta', lang: 'Deutsch',  role: 'intellectuelle',        photo: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O', side: 'r' },
 ];
+const memberById = id => MEMBERS.find(m => m.id === id);
 
-const SCRIPT = [
-  { dida: true, fr: 'Ils se souviennent. Peut-être mal. Mais ils étaient là.', dur: 5200 },
-  { sp: 'olga',  vo: 'Ну, послушаем. Но у нас мало времени, товарищ.', fr: 'Bien. Écoutons. Mais nous avons peu de temps, camarade.', dur: 5400 },
-  { sp: 'john',  vo: 'Words are cheap. Show us where the money goes.', fr: 'Les mots ne coûtent rien. Montre-nous où va l’argent.', dur: 5000 },
-  { sp: 'wei',   vo: '先说清楚：生产资料掌握在谁手里？', fr: 'Commence par le plus clair : qui détient les moyens de production ?', dur: 5600 },
-  { sp: 'diego', vo: '¡Y sin jefes! Ni los tuyos, ni los nuestros.', fr: 'Et sans chefs ! Ni les tiens, ni les nôtres.', dur: 4600 },
-  { dida: true, fr: '(Murmures, hors champ)', fx: 'murmur', dur: 3400 },
-  { sp: 'amara', vo: 'من طنجة إلى جاكرتا، المعركة واحدة.', fr: 'De Tanger à Jakarta, c’est la même bataille.', dur: 5200 },
-  { dida: true, fr: '(La salle éclate — hourras, poings sur les tables)', fx: 'ovation', dur: 4600 },
-  { sp: 'greta', vo: 'Die Widersprüche interessieren mich. Ihre auch.', fr: 'Les contradictions m’intéressent. Y compris les vôtres.', dur: 5200 },
-  { dida: true, fr: 'Bientôt, vous aurez la parole.', dur: 5000 },
-];
+const START_CONVICTION = 40;
+const CONVINCED_AT = 60;
+const HOSTILE_AT = 25;
+const ROUNDS = 3;
 
-/* ── ElevenLabs TTS ──────────────────────────────────────── */
-/* Clé ElevenLabs optionnelle collée par l'utilisateur, gardée
-   uniquement dans son navigateur. Sinon on passe par /api/tts. */
+/* ── TTS : clé locale (navigateur) sinon proxy serveur ──── */
 const getLocalKey = () => {
   try { return localStorage.getItem('elevenlabs_key') || ''; } catch { return ''; }
 };
 
 async function fetchVoice(text, voiceId) {
-  if (!voiceId) return { error: 'pas de voix définie' };
+  if (!voiceId || !text) return null;
   const localKey = getLocalKey();
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
@@ -61,42 +53,21 @@ async function fetchVoice(text, voiceId) {
           });
       if (res.ok) {
         const blob = await res.blob();
-        return { url: URL.createObjectURL(blob) };
+        return URL.createObjectURL(blob);
       }
-      // 429 = trop de requêtes simultanées (plan gratuit) : on retente
       if (res.status === 429) {
         await new Promise(r => setTimeout(r, 1200 * (attempt + 1)));
         continue;
       }
-      let detail = '';
-      try {
-        const j = await res.json();
-        const d = j.detail || j.error || '';
-        detail = typeof d === 'string' ? d : (d.message || d.status || JSON.stringify(d).slice(0, 120));
-      } catch { /* ignore */ }
-      if (localKey && (res.status === 401 || res.status === 403)) detail = 'clé invalide — vérifie-la';
-      return { error: `HTTP ${res.status} ${detail}`.trim() };
-    } catch (err) {
-      return { error: `réseau : ${String(err).slice(0, 120)}` };
+      return null;
+    } catch {
+      return null;
     }
   }
-  return { error: 'HTTP 429 — trop de requêtes' };
+  return null;
 }
 
-/* File d'attente : max 2 requêtes simultanées (limite ElevenLabs) */
-async function fetchAllVoices(items, onEach) {
-  const queue = [...items];
-  const workers = Array.from({ length: 2 }, async () => {
-    while (queue.length) {
-      const item = queue.shift();
-      const result = await fetchVoice(item.text, item.voiceId);
-      onEach(item, result);
-    }
-  });
-  await Promise.all(workers);
-}
-
-/* ── Moteur audio de fond (Web Audio, synthétisé) ────────── */
+/* ── Moteur audio d'ambiance (Web Audio, synthétisé) ────── */
 function createAudioEngine() {
   const AC = window.AudioContext || window.webkitAudioContext;
   if (!AC) return null;
@@ -116,7 +87,6 @@ function createAudioEngine() {
   }
   const noiseSrc = () => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; return s; };
 
-  // Souffle de studio, très discret — le noir n'est jamais tout à fait silencieux
   const room = noiseSrc();
   const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 110;
   const roomG = ctx.createGain(); roomG.gain.value = 0.22;
@@ -164,137 +134,210 @@ function createAudioEngine() {
   return { murmurSwell, ovation, dispose };
 }
 
+const wait = ms => new Promise(r => setTimeout(r, ms));
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
 /* ── Composant ───────────────────────────────────────────── */
 export default function Tribune({ onExit }) {
-  const [phase, setPhase] = useState('door');   // door | loading | scene
-  const [loadProgress, setLoadProgress] = useState(0);
-  const [loadError, setLoadError] = useState(null);
+  // door → cause → speak → playing → state → verdict
+  const [phase, setPhase] = useState('door');
+  const [round, setRound] = useState(1);
+  const [cause, setCause] = useState('');
+  const [causeInput, setCauseInput] = useState('');
+  const [argInput, setArgInput] = useState('');
+  const [current, setCurrent] = useState(null);   // { member?, vo?, fr } | { dida }
+  const [convictions, setConvictions] = useState({});
+  const [gameError, setGameError] = useState(null);
+  const [imgFail, setImgFail] = useState({});
   const [needKey, setNeedKey] = useState(false);
   const [keyInput, setKeyInput] = useState('');
-  const [line, setLine] = useState(null);
-  const [lineIdx, setLineIdx] = useState(-1);
-  const [ended, setEnded] = useState(false);
-  const [take, setTake] = useState(0);
-  const [imgFail, setImgFail] = useState({});
+
   const audioRef = useRef(null);
-  const voiceUrlsRef = useRef({});
   const voicePlayerRef = useRef(null);
-
-  const loadVoices = useCallback(async () => {
-    setLoadError(null);
-    setNeedKey(false);
-    setLoadProgress(0);
-
-    const lines = SCRIPT
-      .map((l, i) => ({ l, i }))
-      .filter(({ l }) => l.sp && l.vo);
-
-    const total = lines.length;
-    let done = 0;
-    const errors = [];
-    const member = id => MEMBERS.find(m => m.id === id);
-
-    await fetchAllVoices(
-      lines.map(({ l, i }) => ({ text: l.vo, voiceId: member(l.sp)?.voice, idx: i, who: l.sp })),
-      (item, result) => {
-        if (result.url) voiceUrlsRef.current[item.idx] = result.url;
-        else errors.push(`${item.who} : ${result.error}`);
-        done++;
-        setLoadProgress(Math.round((done / total) * 100));
-      }
-    );
-
-    if (errors.length === total) {
-      setLoadError(errors[0]);
-      // Pas de clé côté serveur : on propose de la coller ici
-      if (/non configurée|clé invalide|401|403/.test(errors[0])) {
-        setNeedKey(true);
-      } else {
-        setTimeout(() => setPhase('scene'), 8000);
-      }
-    } else {
-      setPhase('scene');
-    }
-  }, []);
+  const convictionsRef = useRef({});
+  const transcriptRef = useRef([]);
+  const abortRef = useRef(false);
 
   const enter = useCallback(() => {
     audioRef.current = createAudioEngine();
-
-    // iOS n'autorise le son que pendant un geste utilisateur :
-    // on débloque UN lecteur ici (clic) et on le réutilise pour
-    // toutes les voix de la scène.
+    // iOS : on débloque UN lecteur pendant le geste utilisateur,
+    // réutilisé ensuite pour toutes les voix.
     const player = new Audio();
     player.playsInline = true;
     player.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
     player.play().catch(() => {});
     voicePlayerRef.current = player;
 
-    setPhase('loading');
-    loadVoices();
-  }, [loadVoices]);
+    // Sans clé serveur ni clé locale, proposer la saisie
+    if (!getLocalKey()) {
+      fetch('/api/tts').then(r => r.json()).then(d => {
+        if (d && d.cle_configuree === false) setNeedKey(true);
+      }).catch(() => {});
+    }
+
+    setPhase('cause');
+  }, []);
+
+  const playLine = useCallback((line, url) => new Promise(resolve => {
+    setCurrent(line);
+    const minDur = Math.max(3400, (line.fr || '').length * 60);
+    const player = voicePlayerRef.current;
+    if (url && player) {
+      let done = false;
+      const finish = () => { if (!done) { done = true; setTimeout(resolve, 800); } };
+      player.onended = finish;
+      player.src = url;
+      player.volume = 0.92;
+      player.play().catch(() => setTimeout(resolve, minDur));
+      setTimeout(finish, 20000);   // garde-fou
+    } else {
+      setTimeout(resolve, minDur);
+    }
+  }), []);
+
+  const runRound = useCallback(async (argumentText, currentRound, currentCause) => {
+    setGameError(null);
+    setPhase('playing');
+    setCurrent({ dida: currentRound === 1
+      ? 'La salle se tait. Vous montez à la tribune.'
+      : 'L’assemblée pèse vos mots…' });
+
+    let data;
+    try {
+      const res = await fetch('/api/tribune', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cause: currentCause,
+          argument: argumentText,
+          transcript: transcriptRef.current,
+          convictions: convictionsRef.current,
+          round: currentRound,
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${res.status}`);
+      }
+      data = await res.json();
+      if (!Array.isArray(data.lines)) throw new Error('réponse malformée');
+    } catch (err) {
+      setGameError(`L’assemblée est injoignable (${String(err.message || err).slice(0, 120)}). Réessaie.`);
+      setPhase('speak');
+      return;
+    }
+
+    // Synthèse des voix en parallèle (2 répliques max)
+    const urls = await Promise.all(
+      data.lines.map(l => fetchVoice(l.vo, memberById(l.member)?.voice))
+    );
+
+    if (abortRef.current) return;
+
+    for (let k = 0; k < data.lines.length; k++) {
+      if (abortRef.current) return;
+      await playLine(data.lines[k], urls[k]);
+    }
+    urls.forEach(u => { if (u) URL.revokeObjectURL(u); });
+
+    if (data.fx === 'ovation') audioRef.current?.ovation(1);
+    if (data.fx === 'murmur') audioRef.current?.murmurSwell();
+    if (data.dida) {
+      setCurrent({ dida: data.dida });
+      await wait(2800);
+    }
+
+    // Mise à jour des convictions
+    const next = { ...convictionsRef.current };
+    for (const m of MEMBERS) {
+      const d = Number(data.deltas?.[m.id] ?? 0);
+      next[m.id] = clamp((next[m.id] ?? START_CONVICTION) + (Number.isFinite(d) ? d : 0), 0, 100);
+    }
+    convictionsRef.current = next;
+    setConvictions(next);
+
+    transcriptRef.current = [
+      ...transcriptRef.current,
+      { by: 'joueur', fr: argumentText },
+      ...data.lines.map(l => ({ by: l.member, fr: l.fr })),
+    ];
+
+    setCurrent(null);
+    setPhase('state');
+    await wait(3600);
+    if (abortRef.current) return;
+
+    if (currentRound >= ROUNDS) {
+      const convinced = MEMBERS.filter(m => next[m.id] >= CONVINCED_AT).length;
+      if (convinced >= 4) audioRef.current?.ovation(1);
+      else audioRef.current?.murmurSwell();
+      setPhase('verdict');
+    } else {
+      setRound(currentRound + 1);
+      setArgInput('');
+      setPhase('speak');
+    }
+  }, [playLine]);
+
+  const submitCause = useCallback(() => {
+    const c = causeInput.trim();
+    if (c.length < 8) return;
+    setCause(c);
+    const init = {};
+    MEMBERS.forEach(m => { init[m.id] = START_CONVICTION; });
+    convictionsRef.current = init;
+    setConvictions(init);
+    transcriptRef.current = [];
+    runRound(c, 1, c);
+  }, [causeInput, runRound]);
+
+  const submitArg = useCallback(() => {
+    const a = argInput.trim();
+    if (a.length < 8) return;
+    runRound(a, round, cause);
+  }, [argInput, round, cause, runRound]);
+
+  const replay = useCallback(() => {
+    voicePlayerRef.current?.pause();
+    setRound(1);
+    setCause('');
+    setCauseInput('');
+    setArgInput('');
+    setCurrent(null);
+    setGameError(null);
+    transcriptRef.current = [];
+    setPhase('cause');
+  }, []);
 
   const submitKey = useCallback(() => {
     const k = keyInput.trim();
     if (!k) return;
     try { localStorage.setItem('elevenlabs_key', k); } catch { /* ignore */ }
-    loadVoices();
-  }, [keyInput, loadVoices]);
-
-  const replay = useCallback(() => {
-    voicePlayerRef.current?.pause();
-    setEnded(false);
-    setLine(null);
-    setLineIdx(-1);
-    setTake(t => t + 1);
-  }, []);
-
-  useEffect(() => {
-    if (phase !== 'scene') return;
-    let idx = 0;
-    let tid = null;
-
-    const playVoice = (i) => {
-      const url = voiceUrlsRef.current[i];
-      const player = voicePlayerRef.current;
-      if (!url || !player) return;
-      player.pause();
-      player.src = url;
-      player.volume = 0.92;
-      player.play().catch(() => {});
-    };
-
-    const next = () => {
-      if (idx >= SCRIPT.length) { setLine(null); setEnded(true); return; }
-      const l = SCRIPT[idx];
-      setLine(l);
-      setLineIdx(idx);
-      if (l.sp) playVoice(idx);
-      if (l.fx === 'ovation') audioRef.current?.ovation(1);
-      if (l.fx === 'murmur') audioRef.current?.murmurSwell();
-      tid = setTimeout(() => { idx += 1; next(); }, l.dur);
-    };
-
-    const start = setTimeout(next, 2000);
-    return () => { clearTimeout(start); clearTimeout(tid); voicePlayerRef.current?.pause(); };
-  }, [phase, take]);
+    setNeedKey(false);
+  }, [keyInput]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = prev;
+      abortRef.current = true;
+      voicePlayerRef.current?.pause();
       audioRef.current?.dispose();
-      Object.values(voiceUrlsRef.current).forEach(url => URL.revokeObjectURL(url));
     };
   }, []);
 
-  const speaker = line?.sp ? MEMBERS.find(m => m.id === line.sp) : null;
+  const speaker = current?.member ? memberById(current.member) : null;
+  const convincedCount = MEMBERS.filter(m => (convictions[m.id] ?? 0) >= CONVINCED_AT).length;
+  const won = convincedCount >= 4;
+
+  const stance = v => v >= CONVINCED_AT ? 'convaincu·e' : v <= HOSTILE_AT ? 'hostile' : 'sceptique';
 
   return (
     <div className="tr-stage">
-      {/* Le témoin : un seul visage, décalé, sur noir absolu */}
-      {phase === 'scene' && speaker && !imgFail[speaker.id] && (
-        <div key={`${speaker.id}-${lineIdx}`} className={`tr-witness tr-witness-${speaker.side}`}>
+      {/* Le témoin qui parle : gros plan décalé sur noir absolu */}
+      {phase === 'playing' && speaker && !imgFail[speaker.id] && (
+        <div key={`${speaker.id}-${current.fr}`} className={`tr-witness tr-witness-${speaker.side}`}>
           <img
             src={speaker.photo}
             alt=""
@@ -308,34 +351,43 @@ export default function Tribune({ onExit }) {
       <div className="tr-bar tr-bar-top" />
       <div className="tr-bar tr-bar-bottom" />
 
-      {phase === 'scene' && line && (
+      {/* Répliques et didascalies */}
+      {phase === 'playing' && current && (
         <div className={'tr-subzone' + (speaker ? ` tr-subzone-${speaker.side === 'l' ? 'r' : 'l'}` : '')}>
-          {line.vo && <div className="tr-vo" dir="auto">{line.vo}</div>}
-          <div className={'tr-fr' + (line.dida ? ' dida' : '')}>{line.fr}</div>
+          {current.vo && <div className="tr-vo" dir="auto">{current.vo}</div>}
+          <div className={'tr-fr' + (current.dida ? ' dida' : '')}>{current.fr || current.dida}</div>
         </div>
       )}
 
+      {/* Porte d'entrée */}
       {phase === 'door' && (
         <div className="tr-door">
           <div className="tr-door-title">LA TRIBUNE</div>
-          <div className="tr-door-sub">TÉMOINS — CONVAINCRE, OU REDESCENDRE</div>
-          <button className="tr-door-btn" onClick={enter}>Entrer dans la salle</button>
-          <div className="tr-door-note">6 langues · voix réelles · v2</div>
+          <div className="tr-door-sub">TROIS TOURS. CONVAINCRE — OU REDESCENDRE.</div>
+          <button className="tr-door-btn" onClick={enter}>Monter à la tribune</button>
+          <div className="tr-door-note">6 témoins · voix réelles · le jeu</div>
         </div>
       )}
 
-      {phase === 'loading' && (
+      {/* Saisie de la cause */}
+      {phase === 'cause' && (
         <div className="tr-door">
-          <div className="tr-door-title">CHARGEMENT DES VOIX</div>
-          <div className="tr-load-bar">
-            <div className="tr-load-fill" style={{ width: `${loadProgress}%` }} />
-          </div>
-          {needKey ? (
+          <div className="tr-form-label">VOTRE CAUSE, CAMARADE</div>
+          <textarea
+            className="tr-textarea"
+            rows={2}
+            maxLength={280}
+            placeholder="Ex. : la réquisition des logements vides, la semaine de 30 heures…"
+            value={causeInput}
+            onChange={e => setCauseInput(e.target.value)}
+            autoFocus
+          />
+          <button className="tr-door-btn" onClick={submitCause} disabled={causeInput.trim().length < 8}>
+            Défendre cette cause
+          </button>
+          {needKey && (
             <div className="tr-keyform">
-              <div className="tr-load-error">
-                Il manque la clé ElevenLabs. Colle-la ici — elle restera
-                uniquement dans ton navigateur.
-              </div>
+              <div className="tr-door-note">Pour entendre les témoins : colle ta clé ElevenLabs (elle reste dans ton navigateur)</div>
               <input
                 className="tr-keyinput"
                 type="password"
@@ -346,37 +398,77 @@ export default function Tribune({ onExit }) {
               />
               <div className="tr-keyrow">
                 <button className="tr-end-btn" onClick={submitKey}>Valider</button>
-                <button className="tr-end-btn" onClick={() => setPhase('scene')}>Continuer sans voix</button>
+                <button className="tr-end-btn" onClick={() => setNeedKey(false)}>Sans voix</button>
               </div>
-              {loadError && <div className="tr-door-note">détail : {loadError}</div>}
             </div>
-          ) : loadError ? (
-            <div className="tr-load-error">
-              VOIX INDISPONIBLES — {loadError}
-              <br />La scène continue en sous-titres.
-            </div>
-          ) : (
-            <div className="tr-door-note">{loadProgress}% — synthèse multilingue en cours</div>
           )}
         </div>
       )}
 
-      {ended && (
+      {/* Saisie de l'argument du tour */}
+      {phase === 'speak' && (
+        <div className="tr-door">
+          <div className="tr-form-round">TOUR {round} / {ROUNDS}</div>
+          <div className="tr-form-label">L'ASSEMBLÉE ATTEND VOTRE RÉPONSE</div>
+          {transcriptRef.current.length > 0 && (
+            <div className="tr-lastwords">
+              {transcriptRef.current.slice(-2).filter(t => t.by !== 'joueur').map((t, i) => (
+                <div key={i} className="tr-lastword">
+                  <span className="tr-lastword-name">{memberById(t.by)?.name || t.by}</span> — {t.fr}
+                </div>
+              ))}
+            </div>
+          )}
+          <textarea
+            className="tr-textarea"
+            rows={3}
+            maxLength={600}
+            placeholder="Votre argument…"
+            value={argInput}
+            onChange={e => setArgInput(e.target.value)}
+            autoFocus
+          />
+          <button className="tr-door-btn" onClick={submitArg} disabled={argInput.trim().length < 8}>
+            À la tribune
+          </button>
+          {gameError && <div className="tr-load-error">{gameError}</div>}
+        </div>
+      )}
+
+      {/* État de l'assemblée entre les tours */}
+      {phase === 'state' && (
+        <div className="tr-door">
+          <div className="tr-form-label">L'ÉTAT DE L'ASSEMBLÉE</div>
+          <div className="tr-statecard">
+            {MEMBERS.map(m => (
+              <div key={m.id} className="tr-staterow">
+                <span className="tr-state-name">{m.name}</span>
+                <span className="tr-state-bar">
+                  <span className="tr-state-fill" style={{ width: `${convictions[m.id] ?? START_CONVICTION}%` }} />
+                </span>
+                <span className={'tr-state-stance s-' + stance(convictions[m.id] ?? START_CONVICTION).slice(0, 4)}>
+                  {stance(convictions[m.id] ?? START_CONVICTION)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Verdict */}
+      {phase === 'verdict' && (
         <div className="tr-endcard">
-          <div className="tr-end-title">LES TÉMOINS</div>
+          <div className="tr-end-title">{won ? 'L’ASSEMBLÉE SE LÈVE' : convincedCount === 3 ? 'LA SALLE EST PARTAGÉE' : 'REDESCENDS, CAMARADE'}</div>
+          <div className="tr-end-sub">{convincedCount} témoin{convincedCount > 1 ? 's' : ''} sur 6 convaincu{convincedCount > 1 ? 's' : ''} — « {cause} »</div>
           <div className="tr-credits">
             {MEMBERS.map(m => (
               <div key={m.id} className="tr-credit-line">
                 <span className="tr-credit-name">{m.name}</span>
-                <span className="tr-credit-role">{m.role} · {m.lang}</span>
+                <span className="tr-credit-role">{stance(convictions[m.id] ?? START_CONVICTION)} · {m.role}</span>
               </div>
             ))}
           </div>
-          <div className="tr-end-sub">
-            Le débat complet arrive : votre sujet, vos arguments,
-            l’assemblée qui juge selon les principes du compas.
-          </div>
-          <button className="tr-end-btn" onClick={replay}>Rejouer la scène</button>
+          <button className="tr-end-btn" onClick={replay}>Défendre une autre cause</button>
         </div>
       )}
 
