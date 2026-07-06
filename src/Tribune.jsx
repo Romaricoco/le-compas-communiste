@@ -137,6 +137,61 @@ function createAudioEngine() {
 const wait = ms => new Promise(r => setTimeout(r, ms));
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
+const getMistralKey = () => {
+  try { return localStorage.getItem('mistral_key') || ''; } catch { return ''; }
+};
+
+async function callTribuneAPI(cause, argument, transcript, convictions, round) {
+  const mistralKey = getMistralKey();
+  if (!mistralKey) {
+    // Utiliser le serveur
+    const res = await fetch('/api/tribune', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cause, argument, transcript, convictions, round }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  }
+
+  // Appel direct à Mistral
+  const history = Array.isArray(transcript)
+    ? transcript.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n')
+    : '';
+  const SYSTEM = `Tu es le metteur en scène du jeu "La Tribune". Les témoins réagissent selon leur conviction.
+1. Deux témoins réagissent (varie vs tours précédents).
+2. MAX 18 mots/réaction. Langue maternelle (vo) + traduction française (fr).
+3. "deltas" : -20 à +20 par témoin. Argument solide = positif. Creux = négatif.
+4. "dida" : didascalie max 12 mots ou null. "fx" : "ovation", "murmur", ou null.
+Réponds UNIQUEMENT en JSON : {"lines":[{"member":"id","vo":"...","fr":"..."},...],"deltas":{...},"dida":null,"fx":null}`;
+  const userMsg = `CAUSE : ${cause.slice(0, 300)}
+TOUR : ${round}/3
+CONVICTIONS : ${JSON.stringify(convictions || {})}
+TRANSCRIPTION : ${history || '(début)'}
+
+ARGUMENT : ${argument.slice(0, 600)}`;
+
+  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'mistral-large-latest',
+      messages: [
+        { role: 'system', content: SYSTEM },
+        { role: 'user', content: userMsg },
+      ],
+      temperature: 0.7,
+      response_format: { type: 'json_object' },
+    }),
+  });
+  if (!res.ok) {
+    const j = await res.json().catch(() => ({}));
+    throw new Error(j.error?.message || `HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return JSON.parse(data.choices[0].message.content);
+}
+
 /* ── Composant ───────────────────────────────────────────── */
 export default function Tribune({ onExit }) {
   // door → cause → speak → playing → state → verdict
@@ -149,8 +204,8 @@ export default function Tribune({ onExit }) {
   const [convictions, setConvictions] = useState({});
   const [gameError, setGameError] = useState(null);
   const [imgFail, setImgFail] = useState({});
-  const [needKey, setNeedKey] = useState(false);
-  const [keyInput, setKeyInput] = useState('');
+  const [needMistralKey, setNeedMistralKey] = useState(false);
+  const [mistralKeyInput, setMistralKeyInput] = useState('');
 
   const audioRef = useRef(null);
   const voicePlayerRef = useRef(null);
@@ -204,26 +259,17 @@ export default function Tribune({ onExit }) {
 
     let data;
     try {
-      const res = await fetch('/api/tribune', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cause: currentCause,
-          argument: argumentText,
-          transcript: transcriptRef.current,
-          convictions: convictionsRef.current,
-          round: currentRound,
-        }),
-      });
-      if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
-        throw new Error(j.error || `HTTP ${res.status}`);
-      }
-      data = await res.json();
-      if (!Array.isArray(data.lines)) throw new Error('réponse malformée');
+      data = await callTribuneAPI(currentCause, argumentText, transcriptRef.current, convictionsRef.current, currentRound);
+      if (!Array.isArray(data.lines)) throw new Error(‘réponse malformée’);
     } catch (err) {
-      setGameError(`L’assemblée est injoignable (${String(err.message || err).slice(0, 120)}). Réessaie.`);
-      setPhase('speak');
+      const msg = String(err.message || err);
+      if (/mistral|401|403/i.test(msg)) {
+        setGameError(`Mistral indisponible. Colle ta clé.`);
+        setNeedMistralKey(true);
+      } else {
+        setGameError(`L’assemblée est injoignable (${msg.slice(0, 100)}). Réessaie.`);
+      }
+      setPhase(‘speak’);
       return;
     }
 
@@ -309,12 +355,12 @@ export default function Tribune({ onExit }) {
     setPhase('cause');
   }, []);
 
-  const submitKey = useCallback(() => {
-    const k = keyInput.trim();
+  const submitMistralKey = useCallback(() => {
+    const k = mistralKeyInput.trim();
     if (!k) return;
-    try { localStorage.setItem('elevenlabs_key', k); } catch { /* ignore */ }
-    setNeedKey(false);
-  }, [keyInput]);
+    try { localStorage.setItem('mistral_key', k); } catch { /* ignore */ }
+    setNeedMistralKey(false);
+  }, [mistralKeyInput]);
 
   useEffect(() => {
     const prev = document.body.style.overflow;
@@ -385,20 +431,19 @@ export default function Tribune({ onExit }) {
           <button className="tr-door-btn" onClick={submitCause} disabled={causeInput.trim().length < 8}>
             Défendre cette cause
           </button>
-          {needKey && (
+          {needMistralKey && (
             <div className="tr-keyform">
-              <div className="tr-door-note">Pour entendre les témoins : colle ta clé ElevenLabs (elle reste dans ton navigateur)</div>
+              <div className="tr-door-note">Mistral indisponible : colle ta clé API (elle reste dans ton navigateur)</div>
               <input
                 className="tr-keyinput"
                 type="password"
                 placeholder="sk_…"
-                value={keyInput}
-                onChange={e => setKeyInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') submitKey(); }}
+                value={mistralKeyInput}
+                onChange={e => setMistralKeyInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
               />
               <div className="tr-keyrow">
-                <button className="tr-end-btn" onClick={submitKey}>Valider</button>
-                <button className="tr-end-btn" onClick={() => setNeedKey(false)}>Sans voix</button>
+                <button className="tr-end-btn" onClick={submitMistralKey}>Valider Mistral</button>
               </div>
             </div>
           )}
