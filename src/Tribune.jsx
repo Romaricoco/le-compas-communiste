@@ -481,22 +481,21 @@ export default function Tribune({ onExit }) {
           {gameError && (
             <div>
               <div className="tr-load-error">{gameError}</div>
-              {needMistralKey && (
-                <div className="tr-keyform">
-                  <div className="tr-door-note">Colle ta clé Mistral (elle reste dans ton navigateur)</div>
-                  <input
-                    className="tr-keyinput"
-                    type="password"
-                    placeholder="sk_…"
-                    value={mistralKeyInput}
-                    onChange={e => setMistralKeyInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
-                  />
-                  <div className="tr-keyrow">
-                    <button className="tr-end-btn" onClick={submitMistralKey}>Valider</button>
-                  </div>
+              <div className="tr-keyform">
+                <div className="tr-door-note">Colle ta cle Mistral de mistral.ai (elle reste dans ton navigateur)</div>
+                <input
+                  className="tr-keyinput"
+                  type="password"
+                  placeholder="sk_..."
+                  value={mistralKeyInput}
+                  onChange={e => setMistralKeyInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
+                  autoFocus
+                />
+                <div className="tr-keyrow">
+                  <button className="tr-end-btn" onClick={submitMistralKey}>Valider Mistral</button>
                 </div>
-              )}
+              </div>
             </div>
           )}
         </div>
