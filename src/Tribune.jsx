@@ -158,12 +158,12 @@ async function callTribuneAPI(cause, argument, transcript, convictions, round) {
   const history = Array.isArray(transcript)
     ? transcript.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n')
     : '';
-  const SYSTEM = `Tu es le metteur en scène du jeu "La Tribune". Les témoins réagissent selon leur conviction.
-1. Deux témoins réagissent (varie vs tours précédents).
-2. MAX 18 mots/réaction. Langue maternelle (vo) + traduction française (fr).
-3. "deltas" : -20 à +20 par témoin. Argument solide = positif. Creux = négatif.
-4. "dida" : didascalie max 12 mots ou null. "fx" : "ovation", "murmur", ou null.
-Réponds UNIQUEMENT en JSON : {"lines":[{"member":"id","vo":"...","fr":"..."},...],"deltas":{...},"dida":null,"fx":null}`;
+  const SYSTEM = `Tu es le metteur en scene du jeu La Tribune. Les temoins reagissent selon leur conviction.
+1. Deux temoins reagissent (varie vs tours precedents).
+2. MAX 18 mots/reaction. Langue maternelle (vo) + traduction francaise (fr).
+3. deltas : -20 a +20 par temoin. Argument solide = positif. Creux = negatif.
+4. dida : didascalie max 12 mots ou null. fx : ovation, murmur, ou null.
+Reponds UNIQUEMENT en JSON : {"lines":[{"member":"id","vo":"...","fr":"..."},...],"deltas":{},"dida":null,"fx":null}`;
   const userMsg = `CAUSE : ${cause.slice(0, 300)}
 TOUR : ${round}/3
 CONVICTIONS : ${JSON.stringify(convictions || {})}
