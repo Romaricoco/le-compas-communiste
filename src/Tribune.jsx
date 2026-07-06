@@ -52,7 +52,10 @@ async function fetchVoice(text, voiceId) {
         continue;
       }
       let detail = '';
-      try { detail = (await res.json()).detail || ''; } catch { /* ignore */ }
+      try {
+        const j = await res.json();
+        detail = j.detail || j.error || '';
+      } catch { /* ignore */ }
       return { error: `HTTP ${res.status} ${detail}`.trim() };
     } catch (err) {
       return { error: `réseau : ${String(err).slice(0, 120)}` };
