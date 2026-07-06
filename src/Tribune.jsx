@@ -33,15 +33,32 @@ const SCRIPT = [
 ];
 
 /* ── ElevenLabs TTS ──────────────────────────────────────── */
+/* Clé ElevenLabs optionnelle collée par l'utilisateur, gardée
+   uniquement dans son navigateur. Sinon on passe par /api/tts. */
+const getLocalKey = () => {
+  try { return localStorage.getItem('elevenlabs_key') || ''; } catch { return ''; }
+};
+
 async function fetchVoice(text, voiceId) {
   if (!voiceId) return { error: 'pas de voix définie' };
+  const localKey = getLocalKey();
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, voiceId }),
-      });
+      const res = localKey
+        ? await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+            method: 'POST',
+            headers: { 'xi-api-key': localKey, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              text,
+              model_id: 'eleven_multilingual_v2',
+              voice_settings: { stability: 0.42, similarity_boost: 0.82, style: 0.45, use_speaker_boost: true },
+            }),
+          })
+        : await fetch('/api/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, voiceId }),
+          });
       if (res.ok) {
         const blob = await res.blob();
         return { url: URL.createObjectURL(blob) };
@@ -54,8 +71,10 @@ async function fetchVoice(text, voiceId) {
       let detail = '';
       try {
         const j = await res.json();
-        detail = j.detail || j.error || '';
+        const d = j.detail || j.error || '';
+        detail = typeof d === 'string' ? d : (d.message || d.status || JSON.stringify(d).slice(0, 120));
       } catch { /* ignore */ }
+      if (localKey && (res.status === 401 || res.status === 403)) detail = 'clé invalide — vérifie-la';
       return { error: `HTTP ${res.status} ${detail}`.trim() };
     } catch (err) {
       return { error: `réseau : ${String(err).slice(0, 120)}` };
@@ -150,6 +169,8 @@ export default function Tribune({ onExit }) {
   const [phase, setPhase] = useState('door');   // door | loading | scene
   const [loadProgress, setLoadProgress] = useState(0);
   const [loadError, setLoadError] = useState(null);
+  const [needKey, setNeedKey] = useState(false);
+  const [keyInput, setKeyInput] = useState('');
   const [line, setLine] = useState(null);
   const [lineIdx, setLineIdx] = useState(-1);
   const [ended, setEnded] = useState(false);
@@ -159,19 +180,10 @@ export default function Tribune({ onExit }) {
   const voiceUrlsRef = useRef({});
   const voicePlayerRef = useRef(null);
 
-  const enter = useCallback(async () => {
-    audioRef.current = createAudioEngine();
-
-    // iOS n'autorise le son que pendant un geste utilisateur :
-    // on débloque UN lecteur ici (clic) et on le réutilise pour
-    // toutes les voix de la scène.
-    const player = new Audio();
-    player.playsInline = true;
-    player.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
-    player.play().catch(() => {});
-    voicePlayerRef.current = player;
-
-    setPhase('loading');
+  const loadVoices = useCallback(async () => {
+    setLoadError(null);
+    setNeedKey(false);
+    setLoadProgress(0);
 
     const lines = SCRIPT
       .map((l, i) => ({ l, i }))
@@ -193,13 +205,40 @@ export default function Tribune({ onExit }) {
     );
 
     if (errors.length === total) {
-      // Aucune voix : on affiche la cause à l'écran avant de continuer
       setLoadError(errors[0]);
-      setTimeout(() => setPhase('scene'), 8000);
+      // Pas de clé côté serveur : on propose de la coller ici
+      if (/non configurée|clé invalide|401|403/.test(errors[0])) {
+        setNeedKey(true);
+      } else {
+        setTimeout(() => setPhase('scene'), 8000);
+      }
     } else {
       setPhase('scene');
     }
   }, []);
+
+  const enter = useCallback(() => {
+    audioRef.current = createAudioEngine();
+
+    // iOS n'autorise le son que pendant un geste utilisateur :
+    // on débloque UN lecteur ici (clic) et on le réutilise pour
+    // toutes les voix de la scène.
+    const player = new Audio();
+    player.playsInline = true;
+    player.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
+    player.play().catch(() => {});
+    voicePlayerRef.current = player;
+
+    setPhase('loading');
+    loadVoices();
+  }, [loadVoices]);
+
+  const submitKey = useCallback(() => {
+    const k = keyInput.trim();
+    if (!k) return;
+    try { localStorage.setItem('elevenlabs_key', k); } catch { /* ignore */ }
+    loadVoices();
+  }, [keyInput, loadVoices]);
 
   const replay = useCallback(() => {
     voicePlayerRef.current?.pause();
@@ -291,7 +330,27 @@ export default function Tribune({ onExit }) {
           <div className="tr-load-bar">
             <div className="tr-load-fill" style={{ width: `${loadProgress}%` }} />
           </div>
-          {loadError ? (
+          {needKey ? (
+            <div className="tr-keyform">
+              <div className="tr-load-error">
+                Il manque la clé ElevenLabs. Colle-la ici — elle restera
+                uniquement dans ton navigateur.
+              </div>
+              <input
+                className="tr-keyinput"
+                type="password"
+                placeholder="sk_…"
+                value={keyInput}
+                onChange={e => setKeyInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submitKey(); }}
+              />
+              <div className="tr-keyrow">
+                <button className="tr-end-btn" onClick={submitKey}>Valider</button>
+                <button className="tr-end-btn" onClick={() => setPhase('scene')}>Continuer sans voix</button>
+              </div>
+              {loadError && <div className="tr-door-note">détail : {loadError}</div>}
+            </div>
+          ) : loadError ? (
             <div className="tr-load-error">
               VOIX INDISPONIBLES — {loadError}
               <br />La scène continue en sous-titres.
