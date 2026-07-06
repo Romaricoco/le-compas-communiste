@@ -2,7 +2,10 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import './Tribune.css';
 
 /* ══════════════════════════════════════════════════════════
-   LA TRIBUNE — voix ElevenLabs multilingues
+   LA TRIBUNE — dispositif « témoins » (Reds, 1981)
+   Un visage en gros plan, décalé, sur noir absolu.
+   Lumière frontale dure. Aucun décor. La parole nue.
+   Les noms n'apparaissent qu'au générique final.
    ══════════════════════════════════════════════════════════ */
 
 const EL_KEY = import.meta.env.VITE_ELEVENLABS_KEY;
@@ -10,24 +13,24 @@ const EL_KEY = import.meta.env.VITE_ELEVENLABS_KEY;
 const photoUrl = id => `https://unsplash.com/photos/${id}/download?force=true&w=640`;
 
 const MEMBERS = [
-  { id: 'olga',  name: 'Olga',  lang: 'Русский',  role: 'vétérane syndicaliste', photo: photoUrl('cwZGbT9S2HU'), voice: '21m00Tcm4TlvDq8ikWAM' },
-  { id: 'diego', name: 'Diego', lang: 'Español',  role: 'jeune anarchiste',      photo: photoUrl('ApDREtVkv5Y'), voice: 'VR6AewLTigWG4xSOukaG' },
-  { id: 'wei',   name: 'Wei',   lang: '中文',      role: 'matérialiste',          photo: photoUrl('8ukPkmUuSd8'), voice: 'pNInz6obpgDQGcFmaJgB' },
-  { id: 'amara', name: 'Amara', lang: 'العربية',   role: 'internationaliste',     photo: photoUrl('4cA1jDfaVJU'), voice: 'EXAVITQu4vr4xnSDxMaL' },
-  { id: 'john',  name: 'John',  lang: 'English',  role: 'ouvrier sceptique',     photo: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX' },
-  { id: 'greta', name: 'Greta', lang: 'Deutsch',  role: 'intellectuelle',        photo: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O' },
+  { id: 'olga',  name: 'Olga',  lang: 'Русский',  role: 'vétérane syndicaliste', photo: photoUrl('cwZGbT9S2HU'), voice: '21m00Tcm4TlvDq8ikWAM', side: 'l' },
+  { id: 'diego', name: 'Diego', lang: 'Español',  role: 'jeune anarchiste',      photo: photoUrl('ApDREtVkv5Y'), voice: 'VR6AewLTigWG4xSOukaG', side: 'r' },
+  { id: 'wei',   name: 'Wei',   lang: '中文',      role: 'matérialiste',          photo: photoUrl('8ukPkmUuSd8'), voice: 'pNInz6obpgDQGcFmaJgB', side: 'l' },
+  { id: 'amara', name: 'Amara', lang: 'العربية',   role: 'internationaliste',     photo: photoUrl('4cA1jDfaVJU'), voice: 'EXAVITQu4vr4xnSDxMaL', side: 'r' },
+  { id: 'john',  name: 'John',  lang: 'English',  role: 'ouvrier sceptique',     photo: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX', side: 'l' },
+  { id: 'greta', name: 'Greta', lang: 'Deutsch',  role: 'intellectuelle',        photo: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O', side: 'r' },
 ];
 
 const SCRIPT = [
-  { dida: true, fr: 'La salle se tait. Vous montez sur le ring.', dur: 4600 },
+  { dida: true, fr: 'Ils se souviennent. Peut-être mal. Mais ils étaient là.', dur: 5200 },
   { sp: 'olga',  vo: 'Ну, послушаем. Но у нас мало времени, товарищ.', fr: 'Bien. Écoutons. Mais nous avons peu de temps, camarade.', dur: 5400 },
-  { sp: 'john',  vo: 'Words are cheap. Show us where the money goes.', fr: 'Les mots ne coûtent rien. Montre-nous où va l'argent.', dur: 5000 },
+  { sp: 'john',  vo: 'Words are cheap. Show us where the money goes.', fr: 'Les mots ne coûtent rien. Montre-nous où va l’argent.', dur: 5000 },
   { sp: 'wei',   vo: '先说清楚：生产资料掌握在谁手里？', fr: 'Commence par le plus clair : qui détient les moyens de production ?', dur: 5600 },
   { sp: 'diego', vo: '¡Y sin jefes! Ni los tuyos, ni los nuestros.', fr: 'Et sans chefs ! Ni les tiens, ni les nôtres.', dur: 4600 },
-  { dida: true, fr: '(Murmures dans l'assemblée)', fx: 'murmur', dur: 3400 },
-  { sp: 'amara', vo: 'من طنجة إلى جاكرتا، المعركة واحدة.', fr: 'De Tanger à Jakarta, c'est la même bataille.', dur: 5200 },
+  { dida: true, fr: '(Murmures, hors champ)', fx: 'murmur', dur: 3400 },
+  { sp: 'amara', vo: 'من طنجة إلى جاكرتا، المعركة واحدة.', fr: 'De Tanger à Jakarta, c’est la même bataille.', dur: 5200 },
   { dida: true, fr: '(La salle éclate — hourras, poings sur les tables)', fx: 'ovation', dur: 4600 },
-  { sp: 'greta', vo: 'Die Widersprüche interessieren mich. Ihre auch.', fr: 'Les contradictions m'intéressent. Y compris les vôtres.', dur: 5200 },
+  { sp: 'greta', vo: 'Die Widersprüche interessieren mich. Ihre auch.', fr: 'Les contradictions m’intéressent. Y compris les vôtres.', dur: 5200 },
   { dida: true, fr: 'Bientôt, vous aurez la parole.', dur: 5000 },
 ];
 
@@ -75,34 +78,24 @@ function createAudioEngine() {
   }
   const noiseSrc = () => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; return s; };
 
+  // Souffle de studio, très discret — le noir n'est jamais tout à fait silencieux
   const room = noiseSrc();
-  const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 130;
-  const roomG = ctx.createGain(); roomG.gain.value = 0.4;
+  const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 110;
+  const roomG = ctx.createGain(); roomG.gain.value = 0.22;
   room.connect(roomF); roomF.connect(roomG); roomG.connect(master); room.start();
 
   const mur = noiseSrc();
   const murF = ctx.createBiquadFilter(); murF.type = 'bandpass'; murF.frequency.value = 620; murF.Q.value = 0.9;
-  const murG = ctx.createGain(); murG.gain.value = 0.012;
+  const murG = ctx.createGain(); murG.gain.value = 0.006;
   mur.connect(murF); murF.connect(murG); murG.connect(master); mur.start();
   const flutter = setInterval(() => {
-    murG.gain.setTargetAtTime(0.008 + Math.random() * 0.014, ctx.currentTime, 0.9);
+    murG.gain.setTargetAtTime(0.004 + Math.random() * 0.008, ctx.currentTime, 0.9);
   }, 1700);
-
-  const thump = () => {
-    const t = ctx.currentTime;
-    const o = ctx.createOscillator(); o.type = 'sine';
-    o.frequency.setValueAtTime(52, t); o.frequency.exponentialRampToValueAtTime(37, t + 0.2);
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.13, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.42);
-    o.connect(g); g.connect(master); o.start(t); o.stop(t + 0.5);
-  };
-  const beat = setInterval(() => { thump(); setTimeout(thump, 330); }, 3100);
 
   const murmurSwell = () => {
     ctx.resume().catch(() => {});
-    murG.gain.setTargetAtTime(0.075, ctx.currentTime, 0.35);
-    setTimeout(() => murG.gain.setTargetAtTime(0.014, ctx.currentTime, 1.4), 2400);
+    murG.gain.setTargetAtTime(0.07, ctx.currentTime, 0.35);
+    setTimeout(() => murG.gain.setTargetAtTime(0.006, ctx.currentTime, 1.4), 2400);
   };
 
   const ovation = (intensity = 1) => {
@@ -129,7 +122,7 @@ function createAudioEngine() {
     }
   };
 
-  const dispose = () => { clearInterval(flutter); clearInterval(beat); ctx.close().catch(() => {}); };
+  const dispose = () => { clearInterval(flutter); ctx.close().catch(() => {}); };
   return { murmurSwell, ovation, dispose };
 }
 
@@ -138,11 +131,12 @@ export default function Tribune({ onExit }) {
   const [phase, setPhase] = useState('door');   // door | loading | scene
   const [loadProgress, setLoadProgress] = useState(0);
   const [line, setLine] = useState(null);
+  const [lineIdx, setLineIdx] = useState(-1);
   const [ended, setEnded] = useState(false);
   const [take, setTake] = useState(0);
   const [imgFail, setImgFail] = useState({});
   const audioRef = useRef(null);
-  const voiceUrlsRef = useRef({});   // index SCRIPT → object URL audio
+  const voiceUrlsRef = useRef({});
   const currentVoiceRef = useRef(null);
 
   const enter = useCallback(async () => {
@@ -155,7 +149,6 @@ export default function Tribune({ onExit }) {
 
     const total = lines.length;
     let done = 0;
-
     const member = id => MEMBERS.find(m => m.id === id);
 
     await Promise.all(
@@ -175,6 +168,7 @@ export default function Tribune({ onExit }) {
     currentVoiceRef.current?.pause();
     setEnded(false);
     setLine(null);
+    setLineIdx(-1);
     setTake(t => t + 1);
   }, []);
 
@@ -197,6 +191,7 @@ export default function Tribune({ onExit }) {
       if (idx >= SCRIPT.length) { setLine(null); setEnded(true); return; }
       const l = SCRIPT[idx];
       setLine(l);
+      setLineIdx(idx);
       if (l.sp) playVoice(idx);
       if (l.fx === 'ovation') audioRef.current?.ovation(1);
       if (l.fx === 'murmur') audioRef.current?.murmurSwell();
@@ -221,55 +216,24 @@ export default function Tribune({ onExit }) {
 
   return (
     <div className="tr-stage">
-      <div className="tr-spot" />
-      <div className="tr-smoke" />
-      <div className="tr-smoke2" />
-      <div className="tr-ringlight" />
-
-      {phase === 'scene' && (
-        <div className="tr-assembly">
-          {MEMBERS.map(m => (
-            <div
-              key={m.id}
-              className={
-                'tr-member' +
-                (speaker?.id === m.id ? ' speaking' : '') +
-                (speaker && speaker.id !== m.id ? ' dimmed' : '')
-              }
-            >
-              {imgFail[m.id] ? (
-                <div className="tr-silhouette" />
-              ) : (
-                <img
-                  src={m.photo}
-                  alt=""
-                  loading="eager"
-                  onError={() => setImgFail(f => ({ ...f, [m.id]: true }))}
-                />
-              )}
-            </div>
-          ))}
+      {/* Le témoin : un seul visage, décalé, sur noir absolu */}
+      {phase === 'scene' && speaker && !imgFail[speaker.id] && (
+        <div key={`${speaker.id}-${lineIdx}`} className={`tr-witness tr-witness-${speaker.side}`}>
+          <img
+            src={speaker.photo}
+            alt=""
+            loading="eager"
+            onError={() => setImgFail(f => ({ ...f, [speaker.id]: true }))}
+          />
         </div>
       )}
 
-      <div className="tr-ring">
-        <div className="tr-rope" />
-        <div className="tr-rope" />
-        <div className="tr-rope" />
-        <div className="tr-post tr-post-l" />
-        <div className="tr-post tr-post-r" />
-      </div>
-
-      <div className="tr-vignette" />
       <div className="tr-grain" />
       <div className="tr-bar tr-bar-top" />
       <div className="tr-bar tr-bar-bottom" />
 
       {phase === 'scene' && line && (
-        <div className="tr-subzone">
-          {speaker && (
-            <div className="tr-nameplate">{speaker.name} · {speaker.lang} · {speaker.role}</div>
-          )}
+        <div className={'tr-subzone' + (speaker ? ` tr-subzone-${speaker.side === 'l' ? 'r' : 'l'}` : '')}>
           {line.vo && <div className="tr-vo" dir="auto">{line.vo}</div>}
           <div className={'tr-fr' + (line.dida ? ' dida' : '')}>{line.fr}</div>
         </div>
@@ -278,9 +242,9 @@ export default function Tribune({ onExit }) {
       {phase === 'door' && (
         <div className="tr-door">
           <div className="tr-door-title">LA TRIBUNE</div>
-          <div className="tr-door-sub">CONVAINCRE — OU REDESCENDRE</div>
+          <div className="tr-door-sub">TÉMOINS — CONVAINCRE, OU REDESCENDRE</div>
           <button className="tr-door-btn" onClick={enter}>Entrer dans la salle</button>
-          <div className="tr-door-note">6 langues · voix réelles · v1</div>
+          <div className="tr-door-note">6 langues · voix réelles · v2</div>
         </div>
       )}
 
@@ -296,17 +260,25 @@ export default function Tribune({ onExit }) {
 
       {ended && (
         <div className="tr-endcard">
-          <div className="tr-end-title">FIN DE LA MAQUETTE</div>
+          <div className="tr-end-title">LES TÉMOINS</div>
+          <div className="tr-credits">
+            {MEMBERS.map(m => (
+              <div key={m.id} className="tr-credit-line">
+                <span className="tr-credit-name">{m.name}</span>
+                <span className="tr-credit-role">{m.role} · {m.lang}</span>
+              </div>
+            ))}
+          </div>
           <div className="tr-end-sub">
             Le débat complet arrive : votre sujet, vos arguments,
-            l'assemblée qui juge selon les principes du compas.
+            l’assemblée qui juge selon les principes du compas.
           </div>
           <button className="tr-end-btn" onClick={replay}>Rejouer la scène</button>
         </div>
       )}
 
       {onExit && (
-        <button className="tr-exit" onClick={onExit}>Quitter la salle ✕</button>
+        <button className="tr-exit" onClick={onExit}>Quitter ✕</button>
       )}
     </div>
   );
