@@ -143,53 +143,20 @@ const getMistralKey = () => {
 
 async function callTribuneAPI(cause, argument, transcript, convictions, round) {
   const mistralKey = getMistralKey();
-  if (!mistralKey) {
-    // Utiliser le serveur
-    const res = await fetch('/api/tribune', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cause, argument, transcript, convictions, round }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  }
-
-  // Appel direct à Mistral
-  const history = Array.isArray(transcript)
-    ? transcript.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n')
-    : '';
-  const SYSTEM = `Tu es le metteur en scene du jeu La Tribune. Les temoins reagissent selon leur conviction.
-1. Deux temoins reagissent (varie vs tours precedents).
-2. MAX 18 mots/reaction. Langue maternelle (vo) + traduction francaise (fr).
-3. deltas : -20 a +20 par temoin. Argument solide = positif. Creux = negatif.
-4. dida : didascalie max 12 mots ou null. fx : ovation, murmur, ou null.
-Reponds UNIQUEMENT en JSON : {"lines":[{"member":"id","vo":"...","fr":"..."},...],"deltas":{},"dida":null,"fx":null}`;
-  const userMsg = `CAUSE : ${cause.slice(0, 300)}
-TOUR : ${round}/3
-CONVICTIONS : ${JSON.stringify(convictions || {})}
-TRANSCRIPTION : ${history || '(début)'}
-
-ARGUMENT : ${argument.slice(0, 600)}`;
-
-  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+  const res = await fetch('/api/tribune', {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'mistral-large-latest',
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: userMsg },
-      ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
+      cause,
+      argument,
+      transcript,
+      convictions,
+      round,
+      mistralKey: mistralKey || undefined,
     }),
   });
-  if (!res.ok) {
-    const j = await res.json().catch(() => ({}));
-    throw new Error(j.error?.message || `HTTP ${res.status}`);
-  }
-  const data = await res.json();
-  return JSON.parse(data.choices[0].message.content);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return await res.json();
 }
 
 /* ── Composant ───────────────────────────────────────────── */

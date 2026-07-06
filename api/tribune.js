@@ -60,11 +60,11 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
 
-  const { cause, argument, transcript, convictions, round } = req.body || {};
+  const { cause, argument, transcript, convictions, round, mistralKey } = req.body || {};
   if (!cause || !argument) return res.status(400).json({ error: 'cause et argument requis' });
 
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
+  const apiKey = mistralKey || process.env.MISTRAL_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configuree et pas de cle du client' });
 
   const history = Array.isArray(transcript)
     ? transcript.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n')
