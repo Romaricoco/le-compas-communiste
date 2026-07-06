@@ -6,6 +6,41 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // GET = page de diagnostic : ouvrir /api/tts dans le navigateur
+  if (req.method === 'GET') {
+    const key = process.env.ELEVENLABS_API_KEY;
+    if (!key) {
+      return res.status(200).json({
+        cle_configuree: false,
+        message: 'La variable ELEVENLABS_API_KEY est absente de Vercel (Settings → Environment Variables), ou le site n\'a pas été redéployé après son ajout.',
+      });
+    }
+    try {
+      const r = await fetch('https://api.elevenlabs.io/v1/user/subscription', {
+        headers: { 'xi-api-key': key },
+      });
+      if (!r.ok) {
+        return res.status(200).json({
+          cle_configuree: true,
+          cle_valide: false,
+          message: `ElevenLabs refuse la clé (HTTP ${r.status}). Elle est probablement invalide ou révoquée — régénère-la et remplace la valeur dans Vercel.`,
+        });
+      }
+      const sub = await r.json();
+      return res.status(200).json({
+        cle_configuree: true,
+        cle_valide: true,
+        plan: sub.tier,
+        caracteres_utilises: sub.character_count,
+        caracteres_limite: sub.character_limit,
+        message: 'Tout est en ordre côté clé. Si les voix ne chargent toujours pas, le problème est ailleurs.',
+      });
+    } catch (err) {
+      return res.status(200).json({ cle_configuree: true, erreur: String(err).slice(0, 200) });
+    }
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
 
   const { text, voiceId } = req.body || {};
