@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import './App.css';
 import MusicPlayer from './MusicPlayer.jsx';
-import Game from './Game.jsx';
+import Tribune from './Tribune.jsx';
 import { CRITERIA_ICONS } from './CriteriaIcons.jsx';
 import EarthBackground from './components/EarthBackground.jsx';
 
@@ -169,7 +169,7 @@ export default function App() {
         </div>
         <nav className="nav">
           <a href="#" className={view === 'compas' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('compas'); }}>Le compas</a>
-          <a href="#" className={view === 'jeu' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('jeu'); }}>★ Le Jeu</a>
+          <a href="#" className={view === 'jeu' ? 'active' : ''} onClick={e => { e.preventDefault(); setView('jeu'); }}>La Tribune</a>
         </nav>
         {installPrompt && !installed && (
           <button className="install-btn" onClick={handleInstall}>⬇ Installer l'app</button>
@@ -195,35 +195,7 @@ export default function App() {
 
       {view === 'compas' && <div className="earth-spacer" />}
 
-      {view === 'jeu' && (
-        <main className="game-main">
-          <Game />
-          <aside className="game-aside">
-            <div className="game-info-block">
-              <div className="game-info-head">▸ Comment jouer</div>
-              <div className="game-info-body">
-                <p>Le bras du compas tourne en continu autour du centre. <b>Clique</b> n'importe où sur le canvas pour inverser sa direction.</p>
-                <p>Attrape les <span className="red">★ étoiles rouges</span> pour marquer des points. Évite les <span className="blue">💰 sacs d'argent</span> — chaque collision te coûte une vie.</p>
-                <p>Le compas accélère progressivement. Combien d'étoiles peux-tu récupérer pour le peuple ?</p>
-              </div>
-            </div>
-            <div className="game-info-block">
-              <div className="game-info-head">▸ Tableau des valeurs</div>
-              <div className="game-info-body">
-                <table className="game-score-table">
-                  <tbody>
-                    <tr><td>Action</td><td>Effet</td></tr>
-                    <tr><td>★ Étoile attrapée</td><td>+1 point</td></tr>
-                    <tr><td>💰 Argent touché</td><td>−1 vie</td></tr>
-                    <tr><td>★ Étoile manquée</td><td>disparaît (−0)</td></tr>
-                    <tr><td>Clic / tap</td><td>Inverse la rotation</td></tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </aside>
-        </main>
-      )}
+      {view === 'jeu' && <Tribune onExit={() => setView('compas')} />}
 
 {view === 'compas' && <main>
         <section className="scanner">
