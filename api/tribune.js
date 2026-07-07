@@ -64,7 +64,9 @@ export default async function handler(req, res) {
   if (!cause || !argument) return res.status(400).json({ error: 'cause et argument requis' });
 
   // La clé collée dans l'app (en-tête) prime sur celle de Vercel
-  const apiKey = req.headers['x-mistral-key'] || process.env.MISTRAL_API_KEY;
+  const localKey = req.headers['x-mistral-key'];
+  const apiKey = localKey || process.env.MISTRAL_API_KEY;
+  const keySource = localKey ? 'clé collée dans l’app' : 'clé du site (Vercel)';
   if (!apiKey) return res.status(500).json({ error: 'Aucune clé Mistral : ni sur Vercel (MISTRAL_API_KEY), ni collée dans l’app' });
 
   const history = Array.isArray(transcript)
@@ -104,7 +106,7 @@ ${String(argument).slice(0, 600)}`;
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
       return res.status(response.status).json({
-        error: `Mistral a répondu ${response.status}`,
+        error: `Mistral a répondu ${response.status} avec la ${keySource}`,
         detail: detail.slice(0, 200),
       });
     }

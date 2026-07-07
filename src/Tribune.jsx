@@ -342,6 +342,13 @@ export default function Tribune({ onExit }) {
     setGameError('Clé enregistrée — renvoie ton argument à la tribune.');
   }, [mistralKeyInput]);
 
+  const forgetMistralKey = useCallback(() => {
+    try { localStorage.removeItem('mistral_key'); } catch { /* ignore */ }
+    setMistralKeyInput('');
+    setNeedMistralKey(false);
+    setGameError('Clé collée oubliée — le site utilisera sa propre clé. Renvoie ton argument.');
+  }, []);
+
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
@@ -431,6 +438,14 @@ export default function Tribune({ onExit }) {
                 onChange={e => setMistralKeyInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
               />
+              <div className="tr-keyrow">
+                <button className="tr-end-btn" onClick={submitMistralKey}>Valider la clé</button>
+                {getLocalKey() && (
+                  <button className="tr-end-btn" onClick={forgetMistralKey}>
+                    Oublier ma clé collée (revenir à celle du site)
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -474,6 +489,14 @@ export default function Tribune({ onExit }) {
                 onChange={e => setMistralKeyInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
               />
+              <div className="tr-keyrow">
+                <button className="tr-end-btn" onClick={submitMistralKey}>Valider la clé</button>
+                {getLocalKey() && (
+                  <button className="tr-end-btn" onClick={forgetMistralKey}>
+                    Oublier ma clé collée (revenir à celle du site)
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>
