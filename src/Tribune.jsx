@@ -69,6 +69,36 @@ async function fetchVoice(text, voiceId) {
   return null;
 }
 
+/* ── Voix de secours : synthèse du navigateur dans la langue
+      du témoin, quand ElevenLabs n'est pas disponible ──────── */
+const SPEECH_LANGS = { olga: 'ru-RU', diego: 'es-ES', wei: 'zh-CN', amara: 'ar-SA', john: 'en-GB', greta: 'de-DE' };
+const SPEECH_PITCH = { olga: 0.75, diego: 1.05, wei: 1.1, amara: 1.0, john: 0.7, greta: 0.95 };
+
+function speakFallback(text, memberId) {
+  return new Promise(resolve => {
+    try {
+      if (!('speechSynthesis' in window)) return resolve(false);
+      const u = new SpeechSynthesisUtterance(text);
+      const lang = SPEECH_LANGS[memberId] || 'fr-FR';
+      u.lang = lang;
+      const voices = speechSynthesis.getVoices();
+      const match = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.slice(0, 2)));
+      if (match) u.voice = match;
+      u.rate = 0.92;
+      u.pitch = SPEECH_PITCH[memberId] ?? 1;
+      u.volume = 1;
+      let done = false;
+      const finish = ok => { if (!done) { done = true; resolve(ok); } };
+      u.onend = () => finish(true);
+      u.onerror = () => finish(false);
+      speechSynthesis.speak(u);
+      setTimeout(() => finish(true), 16000); // garde-fou
+    } catch {
+      resolve(false);
+    }
+  });
+}
+
 /* ── Moteur audio d'ambiance (Web Audio, synthétisé) ────── */
 function createAudioEngine() {
   const AC = window.AudioContext || window.webkitAudioContext;
@@ -89,25 +119,76 @@ function createAudioEngine() {
   }
   const noiseSrc = () => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; return s; };
 
+  // Souffle grave de grand hall — discret (fini le bruit de mer)
   const room = noiseSrc();
-  const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 110;
-  const roomG = ctx.createGain(); roomG.gain.value = 0.22;
+  const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 85;
+  const roomG = ctx.createGain(); roomG.gain.value = 0.1;
   room.connect(roomF); roomF.connect(roomG); roomG.connect(master); room.start();
 
-  const mur = noiseSrc();
-  const murF = ctx.createBiquadFilter(); murF.type = 'bandpass'; murF.frequency.value = 620; murF.Q.value = 0.9;
-  const murG = ctx.createGain(); murG.gain.value = 0.006;
-  mur.connect(murF); murF.connect(murG); murG.connect(master); mur.start();
   let heat = 0.25; // 0..1 : la salle est d'autant plus bruyante qu'elle est chaude
-  const flutter = setInterval(() => {
-    murG.gain.setTargetAtTime((0.004 + Math.random() * 0.008) * (1 + heat * 5), ctx.currentTime, 0.9);
-  }, 1700);
+
+  // Brouhaha de foule : plusieurs « voix » de bavardage (bruit en bande
+  // modulé au rythme de syllabes), qui se densifient avec la chaleur
+  const babble = [];
+  for (let i = 0; i < 5; i++) {
+    const src = noiseSrc();
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.4;
+    f.frequency.value = 420 + Math.random() * 520;
+    const g = ctx.createGain(); g.gain.value = 0.005;
+    const lfo = ctx.createOscillator(); lfo.frequency.value = 2.4 + Math.random() * 3.2;
+    const depth = ctx.createGain(); depth.gain.value = 0.004;
+    lfo.connect(depth); depth.connect(g.gain);
+    src.connect(f); f.connect(g); g.connect(master);
+    src.start(0, Math.random() * 1.8); lfo.start();
+    babble.push({ f, g, lfo, depth });
+  }
+  const babbleTune = setInterval(() => {
+    for (const b of babble) {
+      b.f.frequency.setTargetAtTime(380 + Math.random() * 640, ctx.currentTime, 0.8);
+      b.lfo.frequency.setTargetAtTime(2 + Math.random() * 4, ctx.currentTime, 0.8);
+      const base = (0.003 + Math.random() * 0.004) * (1 + heat * 4);
+      b.g.gain.setTargetAtTime(base, ctx.currentTime, 1.1);
+      b.depth.gain.setTargetAtTime(base * 0.9, ctx.currentTime, 1.1);
+    }
+  }, 2100);
+
+  // Bruits de salle aléatoires : toux, chaises, exclamations lointaines
+  const burst = ({ f0, type = 'bandpass', q = 1, dur = 0.12, gain = 0.04, sweep = 0 }) => {
+    const t = ctx.currentTime;
+    const s = ctx.createBufferSource(); s.buffer = buf;
+    const f = ctx.createBiquadFilter(); f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(f0, t);
+    if (sweep) f.frequency.linearRampToValueAtTime(Math.max(60, f0 + sweep), t + dur);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    s.connect(f); f.connect(g); g.connect(master);
+    s.start(t, Math.random() * 1.6, dur + 0.05);
+  };
+  const events = setInterval(() => {
+    if (Math.random() > 0.3 + heat * 0.45) return;
+    const pick = Math.random();
+    if (pick < 0.3) {           // une toux au fond de la salle
+      burst({ f0: 360, type: 'lowpass', dur: 0.13, gain: 0.05 });
+      setTimeout(() => burst({ f0: 320, type: 'lowpass', dur: 0.11, gain: 0.038 }), 200);
+    } else if (pick < 0.55) {   // une chaise qui racle
+      burst({ f0: 2000 + Math.random() * 600, q: 9, dur: 0.1, gain: 0.024, sweep: -350 });
+    } else if (pick < 0.8) {    // le brouhaha qui enfle brièvement
+      for (const b of babble) b.g.gain.setTargetAtTime(0.014 * (1 + heat), ctx.currentTime, 0.25);
+    } else {                    // une exclamation lointaine
+      burst({ f0: 550 + Math.random() * 200, q: 3, dur: 0.28, gain: 0.03, sweep: 260 });
+    }
+  }, 1150);
+
   const setHeat = v => { heat = Math.max(0, Math.min(1, v)); };
 
   const murmurSwell = () => {
     ctx.resume().catch(() => {});
-    murG.gain.setTargetAtTime(0.07, ctx.currentTime, 0.35);
-    setTimeout(() => murG.gain.setTargetAtTime(0.006, ctx.currentTime, 1.4), 2400);
+    for (const b of babble) b.g.gain.setTargetAtTime(0.03, ctx.currentTime, 0.3);
+    setTimeout(() => {
+      for (const b of babble) b.g.gain.setTargetAtTime(0.006, ctx.currentTime, 1.4);
+    }, 2600);
   };
 
   const ovation = (intensity = 1) => {
@@ -134,7 +215,7 @@ function createAudioEngine() {
     }
   };
 
-  const dispose = () => { clearInterval(flutter); ctx.close().catch(() => {}); };
+  const dispose = () => { clearInterval(babbleTune); clearInterval(events); ctx.close().catch(() => {}); };
   return { murmurSwell, ovation, setHeat, dispose };
 }
 
@@ -198,6 +279,8 @@ export default function Tribune({ onExit }) {
 
     // Préchauffe les portraits pendant que le joueur écrit sa cause
     MEMBERS.forEach(m => { const img = new Image(); img.src = m.photo; });
+    // Préchauffe les voix du navigateur (le catalogue se charge en asynchrone)
+    try { speechSynthesis.getVoices(); } catch { /* ignore */ }
 
     setPhase('cause');
   }, []);
@@ -214,6 +297,15 @@ export default function Tribune({ onExit }) {
       player.volume = 0.92;
       player.play().catch(() => setTimeout(resolve, minDur));
       setTimeout(finish, 20000);   // garde-fou
+    } else if (line.vo && line.member) {
+      // Pas d'ElevenLabs : le témoin parle avec la voix du téléphone,
+      // dans sa langue (russe, mandarin, arabe…)
+      const t0 = Date.now();
+      speakFallback(line.vo, line.member).then(ok => {
+        const elapsed = Date.now() - t0;
+        const pad = ok ? Math.max(600, 2400 - elapsed) : Math.max(300, minDur - elapsed);
+        setTimeout(resolve, pad);
+      });
     } else {
       setTimeout(resolve, minDur);
     }
@@ -324,6 +416,7 @@ export default function Tribune({ onExit }) {
 
   const replay = useCallback(() => {
     voicePlayerRef.current?.pause();
+    try { speechSynthesis.cancel(); } catch { /* ignore */ }
     setRound(1);
     setCause('');
     setCauseInput('');
@@ -356,6 +449,7 @@ export default function Tribune({ onExit }) {
       document.body.style.overflow = prev;
       abortRef.current = true;
       voicePlayerRef.current?.pause();
+      try { speechSynthesis.cancel(); } catch { /* ignore */ }
       audioRef.current?.dispose();
     };
   }, []);
