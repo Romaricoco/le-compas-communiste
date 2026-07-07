@@ -146,54 +146,22 @@ const getMistralKey = () => {
 };
 
 async function callTribuneAPI(cause, argument, transcript, convictions, round) {
+  // Toujours via notre serveur (appeler Mistral depuis le navigateur est
+  // bloqué par CORS) ; la clé collée dans l'app part en en-tête et prime.
   const mistralKey = getMistralKey();
-  if (!mistralKey) {
-    // Utiliser le serveur
-    const res = await fetch('/api/tribune', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cause, argument, transcript, convictions, round }),
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  }
-
-  // Appel direct à Mistral
-  const history = Array.isArray(transcript)
-    ? transcript.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n')
-    : '';
-  const SYSTEM = `Tu es le metteur en scène du jeu "La Tribune". Les témoins réagissent selon leur conviction.
-1. Deux témoins réagissent (varie vs tours précédents).
-2. MAX 18 mots/réaction. Langue maternelle (vo) + traduction française (fr).
-3. "deltas" : -20 à +20 par témoin. Argument solide = positif. Creux = négatif.
-4. "dida" : didascalie max 12 mots ou null. "fx" : "ovation", "murmur", ou null.
-Réponds UNIQUEMENT en JSON : {"lines":[{"member":"id","vo":"...","fr":"..."},...],"deltas":{...},"dida":null,"fx":null}`;
-  const userMsg = `CAUSE : ${cause.slice(0, 300)}
-TOUR : ${round}/3
-CONVICTIONS : ${JSON.stringify(convictions || {})}
-TRANSCRIPTION : ${history || '(début)'}
-
-ARGUMENT : ${argument.slice(0, 600)}`;
-
-  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+  const headers = { 'Content-Type': 'application/json' };
+  if (mistralKey) headers['X-Mistral-Key'] = mistralKey;
+  const res = await fetch('/api/tribune', {
     method: 'POST',
-    headers: { 'Authorization': `Bearer ${mistralKey}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'mistral-large-latest',
-      messages: [
-        { role: 'system', content: SYSTEM },
-        { role: 'user', content: userMsg },
-      ],
-      temperature: 0.7,
-      response_format: { type: 'json_object' },
-    }),
+    headers,
+    body: JSON.stringify({ cause, argument, transcript, convictions, round }),
   });
   if (!res.ok) {
     const j = await res.json().catch(() => ({}));
-    throw new Error(j.error?.message || `HTTP ${res.status}`);
+    const detail = [j.error, j.detail].filter(Boolean).join(' — ');
+    throw new Error(detail || `HTTP ${res.status}`);
   }
-  const data = await res.json();
-  return JSON.parse(data.choices[0].message.content);
+  return await res.json();
 }
 
 /* ── Composant ───────────────────────────────────────────── */
@@ -264,11 +232,11 @@ export default function Tribune({ onExit }) {
       if (!Array.isArray(data.lines)) throw new Error('réponse malformée');
     } catch (err) {
       const msg = String(err.message || err);
-      if (/mistral|401|403/i.test(msg)) {
-        setGameError(`Mistral indisponible. Colle ta clé.`);
+      if (/401|403|aucune clé|unauthorized|invalid/i.test(msg)) {
+        setGameError(`Clé Mistral refusée ou absente — ${msg.slice(0, 120)}`);
         setNeedMistralKey(true);
       } else {
-        setGameError(`L’assemblée est injoignable (${msg.slice(0, 100)}). Réessaie.`);
+        setGameError(`L’assemblée n’a pas pu délibérer : ${msg.slice(0, 140)}`);
       }
       setPhase('speak');
       return;
@@ -436,46 +404,42 @@ export default function Tribune({ onExit }) {
         </div>
       )}
 
-      {/* Saisie de la cause */}
+      {/* Ta cause — tu parles dans la scène, comme un sous-titre que tu écris */}
       {phase === 'cause' && (
-        <div className="tr-door">
-          <div className="tr-form-label">VOTRE CAUSE, CAMARADE</div>
+        <div className="tr-speech">
+          <div className="tr-fr dida">Le président de séance frappe le pupitre — « Ta cause, camarade ? »</div>
           <textarea
-            className="tr-textarea"
-            rows={2}
+            className="tr-speechline"
+            rows={1}
             maxLength={280}
-            placeholder="Ex. : la réquisition des logements vides, la semaine de 30 heures…"
+            placeholder="parle… puis Entrée"
+            onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
             value={causeInput}
             onChange={e => setCauseInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitCause(); } }}
             autoFocus
           />
-          <button className="tr-door-btn" onClick={submitCause} disabled={causeInput.trim().length < 8}>
-            Défendre cette cause
-          </button>
+          <div className="tr-speech-hint">↵ Entrée pour monter à la tribune</div>
           {needMistralKey && (
             <div className="tr-keyform">
-              <div className="tr-door-note">Mistral indisponible : colle ta clé API (elle reste dans ton navigateur)</div>
+              <div className="tr-door-note">Mistral indisponible : colle ta clé API (console.mistral.ai → API Keys — elle reste dans ton navigateur)</div>
               <input
                 className="tr-keyinput"
                 type="password"
-                placeholder="sk_…"
+                placeholder="clé Mistral…"
                 value={mistralKeyInput}
                 onChange={e => setMistralKeyInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
               />
-              <div className="tr-keyrow">
-                <button className="tr-end-btn" onClick={submitMistralKey}>Valider Mistral</button>
-              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* Saisie de l'argument du tour */}
+      {/* Ton argument du tour — même dispositif, la salle attend */}
       {phase === 'speak' && (
-        <div className="tr-door">
-          <div className="tr-form-round">TOUR {round} / {ROUNDS}</div>
-          <div className="tr-form-label">L'ASSEMBLÉE ATTEND VOTRE RÉPONSE</div>
+        <div className="tr-speech">
+          <div className="tr-speech-hint">TOUR {round} / {ROUNDS}</div>
           {transcriptRef.current.length > 0 && (
             <div className="tr-lastwords">
               {transcriptRef.current.slice(-2).filter(t => t.by !== 'joueur').map((t, i) => (
@@ -485,18 +449,19 @@ export default function Tribune({ onExit }) {
               ))}
             </div>
           )}
+          <div className="tr-fr dida">L'assemblée attend ta réponse.</div>
           <textarea
-            className="tr-textarea"
-            rows={3}
+            className="tr-speechline"
+            rows={2}
             maxLength={600}
-            placeholder="Votre argument…"
+            placeholder="parle… puis Entrée"
+            onInput={e => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; }}
             value={argInput}
             onChange={e => setArgInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitArg(); } }}
             autoFocus
           />
-          <button className="tr-door-btn" onClick={submitArg} disabled={argInput.trim().length < 8}>
-            À la tribune
-          </button>
+          <div className="tr-speech-hint">↵ Entrée pour prendre la parole</div>
           {gameError && <div className="tr-load-error">{gameError}</div>}
           {needMistralKey && (
             <div className="tr-keyform">
@@ -509,29 +474,19 @@ export default function Tribune({ onExit }) {
                 onChange={e => setMistralKeyInput(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
               />
-              <div className="tr-keyrow">
-                <button className="tr-end-btn" onClick={submitMistralKey}>Valider la clé</button>
-              </div>
             </div>
           )}
         </div>
       )}
 
-      {/* État de l'assemblée entre les tours */}
+      {/* État de la salle entre les tours : une ligne, comme un carton */}
       {phase === 'state' && (
-        <div className="tr-door">
-          <div className="tr-form-label">L'ÉTAT DE L'ASSEMBLÉE</div>
-          <div className="tr-statecard">
+        <div className="tr-speech">
+          <div className="tr-stateline">
             {MEMBERS.map(m => (
-              <div key={m.id} className="tr-staterow">
-                <span className="tr-state-name">{m.name}</span>
-                <span className="tr-state-bar">
-                  <span className="tr-state-fill" style={{ width: `${convictions[m.id] ?? START_CONVICTION}%` }} />
-                </span>
-                <span className={'tr-state-stance s-' + stance(convictions[m.id] ?? START_CONVICTION).slice(0, 4)}>
-                  {stance(convictions[m.id] ?? START_CONVICTION)}
-                </span>
-              </div>
+              <span key={m.id} className={'tr-state-chip s-' + stance(convictions[m.id] ?? START_CONVICTION).slice(0, 4)}>
+                {m.name} <em>{stance(convictions[m.id] ?? START_CONVICTION)}</em>
+              </span>
             ))}
           </div>
         </div>

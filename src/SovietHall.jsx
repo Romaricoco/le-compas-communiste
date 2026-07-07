@@ -160,9 +160,9 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
     }));
     const coneGeo = keep(new THREE.ConeGeometry(4.2, 16, 28, 1, true));
     const lampTex = keep(makeGlowTexture('rgba(255,236,200,1)', 'rgba(255,220,160,0)'));
-    [-6.5, 0.5, 7].forEach((x, i) => {
+    [-7, 0, 7].forEach((x, i) => {
       const cone = new THREE.Mesh(coneGeo, coneMat);
-      cone.position.set(x, 11, -10 - i * 1.5);
+      cone.position.set(x, 11, -10.5 - (i === 1 ? 1.2 : 0));
       cone.rotation.z = (i - 1) * 0.1;
       scene.add(cone);
       cones.push(cone);

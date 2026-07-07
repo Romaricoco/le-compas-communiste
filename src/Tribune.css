@@ -282,6 +282,75 @@
 .tr-keyinput:focus { border-color: rgba(232,228,220,0.7); }
 .tr-keyrow { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
 
+/* ── La prise de parole : pas de formulaire, tu écris dans
+      la scène, à la place des sous-titres ────────────────── */
+.tr-speech {
+  position: absolute;
+  bottom: 10vh; left: 0; right: 0;
+  margin: 0 auto;
+  width: min(760px, 92vw);
+  display: flex; flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+  z-index: 45;
+  animation: tr-subin 1.1s ease both;
+}
+.tr-speechline {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(232, 228, 220, 0.16);
+  outline: none;
+  resize: none;
+  text-align: center;
+  color: #f2efe8;
+  caret-color: #e0b088;
+  font-family: "Oswald", sans-serif;
+  font-weight: 400;
+  font-size: clamp(18px, 2.6vw, 27px);
+  letter-spacing: .035em;
+  line-height: 1.45;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.95);
+  padding: 4px 8px 10px;
+  overflow: hidden;
+  transition: border-color .6s;
+}
+.tr-speechline:focus { border-bottom-color: rgba(232, 228, 220, 0.45); }
+.tr-speechline::placeholder {
+  color: rgba(216,213,207,0.28);
+  font-style: italic;
+  font-weight: 300;
+}
+.tr-speech-hint {
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .3em;
+  text-transform: uppercase;
+  color: rgba(216,213,207,0.32);
+}
+
+/* carton d'état : une ligne de chips discrètes */
+.tr-stateline {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px 26px;
+}
+.tr-state-chip {
+  font-family: "Space Mono", monospace;
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(216,213,207,0.55);
+}
+.tr-state-chip em {
+  font-style: normal;
+  color: rgba(216,213,207,0.35);
+}
+.tr-state-chip.s-conv em { color: rgba(240,222,190,0.95); }
+.tr-state-chip.s-host em { color: #c96a5e; }
+
 /* ── Écrans du jeu : cause, argument, état de la salle ─── */
 .tr-form-round {
   font-family: "Space Mono", monospace;

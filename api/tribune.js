@@ -24,7 +24,7 @@ Réponds UNIQUEMENT en JSON valide, sans markdown :
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Mistral-Key');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -63,8 +63,9 @@ export default async function handler(req, res) {
   const { cause, argument, transcript, convictions, round } = req.body || {};
   if (!cause || !argument) return res.status(400).json({ error: 'cause et argument requis' });
 
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
+  // La clé collée dans l'app (en-tête) prime sur celle de Vercel
+  const apiKey = req.headers['x-mistral-key'] || process.env.MISTRAL_API_KEY;
+  if (!apiKey) return res.status(500).json({ error: 'Aucune clé Mistral : ni sur Vercel (MISTRAL_API_KEY), ni collée dans l’app' });
 
   const history = Array.isArray(transcript)
     ? transcript.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n')
@@ -80,23 +81,32 @@ ARGUMENT DU JOUEUR À CE TOUR :
 ${String(argument).slice(0, 600)}`;
 
   try {
-    const response = await fetch(MISTRAL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'mistral-large-latest',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: userContent },
-        ],
-        temperature: 0.7,
-        response_format: { type: 'json_object' },
-      }),
-    });
+    let response;
+    // les clés gratuites Mistral sont limitées en débit : on retente une fois
+    for (let attempt = 0; attempt < 2; attempt++) {
+      response = await fetch(MISTRAL_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: 'mistral-large-latest',
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userContent },
+          ],
+          temperature: 0.7,
+          response_format: { type: 'json_object' },
+        }),
+      });
+      if (response.status !== 429) break;
+      await new Promise(r => setTimeout(r, 1600));
+    }
 
     if (!response.ok) {
       const detail = await response.text().catch(() => '');
-      return res.status(response.status).json({ error: 'Erreur Mistral', detail: detail.slice(0, 300) });
+      return res.status(response.status).json({
+        error: `Mistral a répondu ${response.status}`,
+        detail: detail.slice(0, 200),
+      });
     }
 
     const data = await response.json();
