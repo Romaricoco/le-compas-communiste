@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import SovietHall from './SovietHall.jsx';
 import './Tribune.css';
 
 /* ══════════════════════════════════════════════════════════
@@ -97,9 +98,11 @@ function createAudioEngine() {
   const murF = ctx.createBiquadFilter(); murF.type = 'bandpass'; murF.frequency.value = 620; murF.Q.value = 0.9;
   const murG = ctx.createGain(); murG.gain.value = 0.006;
   mur.connect(murF); murF.connect(murG); murG.connect(master); mur.start();
+  let heat = 0.25; // 0..1 : la salle est d'autant plus bruyante qu'elle est chaude
   const flutter = setInterval(() => {
-    murG.gain.setTargetAtTime(0.004 + Math.random() * 0.008, ctx.currentTime, 0.9);
+    murG.gain.setTargetAtTime((0.004 + Math.random() * 0.008) * (1 + heat * 5), ctx.currentTime, 0.9);
   }, 1700);
+  const setHeat = v => { heat = Math.max(0, Math.min(1, v)); };
 
   const murmurSwell = () => {
     ctx.resume().catch(() => {});
@@ -132,7 +135,7 @@ function createAudioEngine() {
   };
 
   const dispose = () => { clearInterval(flutter); ctx.close().catch(() => {}); };
-  return { murmurSwell, ovation, dispose };
+  return { murmurSwell, ovation, setHeat, dispose };
 }
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -209,6 +212,7 @@ export default function Tribune({ onExit }) {
   const [mistralKeyInput, setMistralKeyInput] = useState('');
 
   const audioRef = useRef(null);
+  const hallRef = useRef(null);
   const voicePlayerRef = useRef(null);
   const convictionsRef = useRef({});
   const transcriptRef = useRef([]);
@@ -283,8 +287,8 @@ export default function Tribune({ onExit }) {
     }
     urls.forEach(u => { if (u) URL.revokeObjectURL(u); });
 
-    if (data.fx === 'ovation') audioRef.current?.ovation(1);
-    if (data.fx === 'murmur') audioRef.current?.murmurSwell();
+    if (data.fx === 'ovation') { audioRef.current?.ovation(1); hallRef.current?.ovation(); }
+    if (data.fx === 'murmur') { audioRef.current?.murmurSwell(); hallRef.current?.murmur(); }
     if (data.dida) {
       setCurrent({ dida: data.dida });
       await wait(2800);
@@ -298,6 +302,10 @@ export default function Tribune({ onExit }) {
     }
     convictionsRef.current = next;
     setConvictions(next);
+    // la salle s'échauffe (ou se refroidit) avec la conviction moyenne
+    const avg = MEMBERS.reduce((s, m) => s + (next[m.id] ?? START_CONVICTION), 0) / MEMBERS.length;
+    hallRef.current?.setIntensity(avg / 100);
+    audioRef.current?.setHeat(avg / 100);
 
     transcriptRef.current = [
       ...transcriptRef.current,
@@ -312,8 +320,14 @@ export default function Tribune({ onExit }) {
 
     if (currentRound >= ROUNDS) {
       const convinced = MEMBERS.filter(m => next[m.id] >= CONVINCED_AT).length;
-      if (convinced >= 4) audioRef.current?.ovation(1);
-      else audioRef.current?.murmurSwell();
+      if (convinced >= 4) {
+        audioRef.current?.ovation(1);
+        hallRef.current?.ovation();
+        hallRef.current?.setIntensity(1);
+      } else {
+        audioRef.current?.murmurSwell();
+        hallRef.current?.murmur();
+      }
       setPhase('verdict');
     } else {
       setRound(currentRound + 1);
@@ -357,6 +371,7 @@ export default function Tribune({ onExit }) {
     if (!k) return;
     try { localStorage.setItem('mistral_key', k); } catch { /* ignore */ }
     setNeedMistralKey(false);
+    setGameError('Clé enregistrée — renvoie ton argument à la tribune.');
   }, [mistralKeyInput]);
 
   useEffect(() => {
@@ -378,7 +393,11 @@ export default function Tribune({ onExit }) {
 
   return (
     <div className="tr-stage">
-      {/* Le témoin qui parle : gros plan décalé sur noir absolu */}
+      {/* La salle : foule, faisceaux, bannières — vivante en permanence */}
+      <SovietHall ref={hallRef} />
+      <div className="tr-vignette" />
+
+      {/* Le témoin qui parle : gros plan décalé sur la salle */}
       {phase === 'playing' && speaker && imgFail[speaker.id] !== 'fail' && (
         <div key={`${speaker.id}-${current.fr}`} className={`tr-witness tr-witness-${speaker.side}`}>
           <img
@@ -479,6 +498,22 @@ export default function Tribune({ onExit }) {
             À la tribune
           </button>
           {gameError && <div className="tr-load-error">{gameError}</div>}
+          {needMistralKey && (
+            <div className="tr-keyform">
+              <div className="tr-door-note">Colle ici ta clé API Mistral (console.mistral.ai → API Keys — elle reste dans ton navigateur)</div>
+              <input
+                className="tr-keyinput"
+                type="password"
+                placeholder="clé Mistral…"
+                value={mistralKeyInput}
+                onChange={e => setMistralKeyInput(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') submitMistralKey(); }}
+              />
+              <div className="tr-keyrow">
+                <button className="tr-end-btn" onClick={submitMistralKey}>Valider la clé</button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
