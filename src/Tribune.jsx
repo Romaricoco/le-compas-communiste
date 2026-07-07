@@ -105,9 +105,15 @@ function createAudioEngine() {
   if (!AC) return null;
   const ctx = new AC();
   ctx.resume().catch(() => {});
+  // Chaîne de sortie : compresseur + gain de rattrapage — audible
+  // même sur un haut-parleur de téléphone
+  const comp = ctx.createDynamicsCompressor();
+  comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 5;
+  comp.attack.value = 0.004; comp.release.value = 0.28;
+  const post = ctx.createGain(); post.gain.value = 1.7;
   const master = ctx.createGain();
-  master.gain.value = 0.9;
-  master.connect(ctx.destination);
+  master.gain.value = 1;
+  master.connect(comp); comp.connect(post); post.connect(ctx.destination);
 
   const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const data = buf.getChannelData(0);
@@ -121,8 +127,8 @@ function createAudioEngine() {
 
   // Souffle grave de grand hall — discret (fini le bruit de mer)
   const room = noiseSrc();
-  const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 85;
-  const roomG = ctx.createGain(); roomG.gain.value = 0.1;
+  const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 150;
+  const roomG = ctx.createGain(); roomG.gain.value = 0.16;
   room.connect(roomF); roomF.connect(roomG); roomG.connect(master); room.start();
 
   let heat = 0.25; // 0..1 : la salle est d'autant plus bruyante qu'elle est chaude
@@ -134,9 +140,9 @@ function createAudioEngine() {
     const src = noiseSrc();
     const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.4;
     f.frequency.value = 420 + Math.random() * 520;
-    const g = ctx.createGain(); g.gain.value = 0.005;
+    const g = ctx.createGain(); g.gain.value = 0.02;
     const lfo = ctx.createOscillator(); lfo.frequency.value = 2.4 + Math.random() * 3.2;
-    const depth = ctx.createGain(); depth.gain.value = 0.004;
+    const depth = ctx.createGain(); depth.gain.value = 0.016;
     lfo.connect(depth); depth.connect(g.gain);
     src.connect(f); f.connect(g); g.connect(master);
     src.start(0, Math.random() * 1.8); lfo.start();
@@ -146,7 +152,7 @@ function createAudioEngine() {
     for (const b of babble) {
       b.f.frequency.setTargetAtTime(380 + Math.random() * 640, ctx.currentTime, 0.8);
       b.lfo.frequency.setTargetAtTime(2 + Math.random() * 4, ctx.currentTime, 0.8);
-      const base = (0.003 + Math.random() * 0.004) * (1 + heat * 4);
+      const base = (0.011 + Math.random() * 0.011) * (1 + heat * 3);
       b.g.gain.setTargetAtTime(base, ctx.currentTime, 1.1);
       b.depth.gain.setTargetAtTime(base * 0.9, ctx.currentTime, 1.1);
     }
@@ -170,14 +176,14 @@ function createAudioEngine() {
     if (Math.random() > 0.3 + heat * 0.45) return;
     const pick = Math.random();
     if (pick < 0.3) {           // une toux au fond de la salle
-      burst({ f0: 360, type: 'lowpass', dur: 0.13, gain: 0.05 });
-      setTimeout(() => burst({ f0: 320, type: 'lowpass', dur: 0.11, gain: 0.038 }), 200);
+      burst({ f0: 360, type: 'lowpass', dur: 0.13, gain: 0.12 });
+      setTimeout(() => burst({ f0: 320, type: 'lowpass', dur: 0.11, gain: 0.09 }), 200);
     } else if (pick < 0.55) {   // une chaise qui racle
-      burst({ f0: 2000 + Math.random() * 600, q: 9, dur: 0.1, gain: 0.024, sweep: -350 });
+      burst({ f0: 2000 + Math.random() * 600, q: 9, dur: 0.1, gain: 0.05, sweep: -350 });
     } else if (pick < 0.8) {    // le brouhaha qui enfle brièvement
-      for (const b of babble) b.g.gain.setTargetAtTime(0.014 * (1 + heat), ctx.currentTime, 0.25);
+      for (const b of babble) b.g.gain.setTargetAtTime(0.05 * (1 + heat), ctx.currentTime, 0.25);
     } else {                    // une exclamation lointaine
-      burst({ f0: 550 + Math.random() * 200, q: 3, dur: 0.28, gain: 0.03, sweep: 260 });
+      burst({ f0: 550 + Math.random() * 200, q: 3, dur: 0.28, gain: 0.07, sweep: 260 });
     }
   }, 1150);
 
@@ -185,9 +191,9 @@ function createAudioEngine() {
 
   const murmurSwell = () => {
     ctx.resume().catch(() => {});
-    for (const b of babble) b.g.gain.setTargetAtTime(0.03, ctx.currentTime, 0.3);
+    for (const b of babble) b.g.gain.setTargetAtTime(0.09, ctx.currentTime, 0.3);
     setTimeout(() => {
-      for (const b of babble) b.g.gain.setTargetAtTime(0.006, ctx.currentTime, 1.4);
+      for (const b of babble) b.g.gain.setTargetAtTime(0.02, ctx.currentTime, 1.4);
     }, 2600);
   };
 
@@ -198,7 +204,7 @@ function createAudioEngine() {
     const rf = ctx.createBiquadFilter(); rf.type = 'bandpass';
     rf.frequency.setValueAtTime(420, t0); rf.frequency.linearRampToValueAtTime(700, t0 + 1.2); rf.Q.value = 0.55;
     const rg = ctx.createGain();
-    rg.gain.setValueAtTime(0.0001, t0); rg.gain.exponentialRampToValueAtTime(0.16 * intensity, t0 + 0.45);
+    rg.gain.setValueAtTime(0.0001, t0); rg.gain.exponentialRampToValueAtTime(0.3 * intensity, t0 + 0.45);
     rg.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.2);
     roar.connect(rf); rf.connect(rg); rg.connect(master); roar.start(t0); roar.stop(t0 + 3.4);
 
@@ -209,7 +215,7 @@ function createAudioEngine() {
       const f = ctx.createBiquadFilter(); f.type = 'bandpass';
       f.frequency.value = 1400 + Math.random() * 1700; f.Q.value = 1.6;
       const g = ctx.createGain();
-      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.04 + Math.random() * 0.05, t + 0.006);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08 + Math.random() * 0.08, t + 0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
       s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 1.6, 0.09);
     }

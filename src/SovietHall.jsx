@@ -11,35 +11,6 @@ import * as THREE from 'three';
 
 const isMobile = () => window.innerWidth < 720;
 
-/* Texture silhouette tête + épaules (dessinée à la volée) */
-function makeCrowdTexture() {
-  const c = document.createElement('canvas');
-  c.width = 128; c.height = 128;
-  const g = c.getContext('2d');
-  g.clearRect(0, 0, 128, 128);
-  g.fillStyle = '#08080a';
-  // épaules
-  g.beginPath();
-  g.moveTo(6, 128);
-  g.bezierCurveTo(10, 78, 40, 66, 64, 66);
-  g.bezierCurveTo(88, 66, 118, 78, 122, 128);
-  g.closePath();
-  g.fill();
-  // tête
-  g.beginPath();
-  g.ellipse(64, 42, 24, 27, 0, 0, Math.PI * 2);
-  g.fill();
-  // léger liseré de contre-jour sur le crâne
-  g.strokeStyle = 'rgba(255,214,160,0.28)';
-  g.lineWidth = 2.5;
-  g.beginPath();
-  g.ellipse(64, 42, 24, 27, 0, -Math.PI * 0.85, -Math.PI * 0.15);
-  g.stroke();
-  const t = new THREE.CanvasTexture(c);
-  t.anisotropy = 2;
-  return t;
-}
-
 /* Texture bras + poing levé */
 function makeFistTexture() {
   const c = document.createElement('canvas');
@@ -133,7 +104,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       keep(new THREE.PlaneGeometry(70, 30)),
       keep(new THREE.MeshBasicMaterial({
         map: backGlowTex, transparent: true, depthWrite: false,
-        opacity: 0.5, fog: false,
+        opacity: 0.62, fog: false,
       }))
     );
     backGlow.position.set(0, 6, -24);
@@ -206,40 +177,95 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
     })));
     scene.add(dust);
 
-    /* ── La foule ──────────────────────────────────────── */
-    const crowdTex = keep(makeCrowdTexture());
+    /* ── La foule : de vraies têtes (visages de l'atlas) ── */
     const rows = 7;
     const perRow = mobile ? 26 : 42;
     const crowdCount = rows * perRow;
     const crowdGeo = keep(new THREE.PlaneGeometry(1, 1));
-    const crowdMat = keep(new THREE.MeshBasicMaterial({
-      map: crowdTex, transparent: true, alphaTest: 0.45,
-      side: THREE.DoubleSide,
-    }));
-    const crowd = new THREE.InstancedMesh(crowdGeo, crowdMat, crowdCount);
-    const crowdBase = [];
     const dummy = new THREE.Object3D();
-    let ci = 0;
+    const crowdBase = [];
+    const crowdMeshes = [];
+    const tint = new THREE.Color();
+
     for (let r = 0; r < rows; r++) {
-      const z = -6.5 - r * 1.7;
-      const y = 0.85 + r * 0.52;
-      const spread = 9 + r * 1.1;
+      const z = -7.6 - r * 1.7;
+      const y = 0.8 + r * 0.55;
+      const spread = 8.6 + r * 1.1;
       for (let k = 0; k < perRow; k++) {
         const x = -spread + (k / (perRow - 1)) * spread * 2 + (Math.random() - 0.5) * 0.7;
-        const s = 1.55 + Math.random() * 0.5 + r * 0.06;
         crowdBase.push({
           x, y: y + (Math.random() - 0.5) * 0.2, z: z + (Math.random() - 0.5) * 0.8,
-          s, phase: Math.random() * Math.PI * 2, amp: 0.5 + Math.random(),
+          s: 1.55 + Math.random() * 0.5 + r * 0.06,
+          phase: Math.random() * Math.PI * 2, amp: 0.5 + Math.random(),
+          row: r, mesh: null, local: 0,
         });
-        const b = crowdBase[ci];
-        dummy.position.set(b.x, b.y, b.z);
-        dummy.scale.set(b.s, b.s, 1);
-        dummy.updateMatrix();
-        crowd.setMatrixAt(ci, dummy.matrix);
-        ci++;
       }
     }
-    scene.add(crowd);
+
+    // masque tête + épaules (bords fondus) appliqué à chaque visage
+    const ATLAS_COLS = 5, ATLAS_ROWS = 4, CELL = 160;
+    const maskCanvas = document.createElement('canvas');
+    maskCanvas.width = CELL; maskCanvas.height = CELL;
+    {
+      // serré autour de la tête : le fond des photos disparaît
+      const mg = maskCanvas.getContext('2d');
+      let grad = mg.createRadialGradient(80, 62, 20, 80, 62, 46);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.72, 'rgba(255,255,255,1)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      mg.fillStyle = grad; mg.fillRect(0, 0, CELL, CELL);
+      grad = mg.createRadialGradient(80, 196, 30, 80, 196, 74);
+      grad.addColorStop(0, 'rgba(255,255,255,1)');
+      grad.addColorStop(0.6, 'rgba(255,255,255,0.9)');
+      grad.addColorStop(1, 'rgba(255,255,255,0)');
+      mg.fillStyle = grad; mg.fillRect(0, 0, CELL, CELL);
+    }
+
+    const atlasImg = new Image();
+    atlasImg.src = '/portraits/crowd.jpg';
+    atlasImg.onload = () => {
+      if (disposed) return;
+      const nTypes = ATLAS_COLS * ATLAS_ROWS;
+      const assign = crowdBase.map(() => Math.floor(Math.random() * nTypes));
+      const counts = new Array(nTypes).fill(0);
+      assign.forEach(t => counts[t]++);
+      const meshes = [];
+      for (let t = 0; t < nTypes; t++) {
+        const c = document.createElement('canvas');
+        c.width = CELL; c.height = CELL;
+        const g = c.getContext('2d');
+        g.drawImage(atlasImg, (t % ATLAS_COLS) * CELL, Math.floor(t / ATLAS_COLS) * CELL, CELL, CELL, 0, 0, CELL, CELL);
+        g.globalCompositeOperation = 'destination-in';
+        g.drawImage(maskCanvas, 0, 0);
+        const tex = keep(new THREE.CanvasTexture(c));
+        const mat = keep(new THREE.MeshBasicMaterial({
+          map: tex, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide,
+        }));
+        const m = new THREE.InstancedMesh(crowdGeo, mat, Math.max(1, counts[t]));
+        m.count = counts[t];
+        meshes.push(m);
+        scene.add(m);
+      }
+      const fill = new Array(nTypes).fill(0);
+      crowdBase.forEach((b, i) => {
+        b.mesh = meshes[assign[i]];
+        b.local = fill[assign[i]]++;
+        dummy.position.set(b.x, b.y, b.z);
+        dummy.rotation.set(0, 0, 0);
+        dummy.scale.set(b.s, b.s, 1);
+        dummy.updateMatrix();
+        b.mesh.setMatrixAt(b.local, dummy.matrix);
+        // plus la rangée est loin, plus le visage s'enfonce dans l'ombre
+        // (teinte chaude de projecteur, jamais blafarde)
+        const l = Math.max(0.09, 0.42 - b.row * 0.05 + Math.random() * 0.06);
+        b.mesh.setColorAt(b.local, tint.setRGB(l * 1.12, l * 0.95, l * 0.78));
+      });
+      meshes.forEach(m => {
+        m.instanceMatrix.needsUpdate = true;
+        if (m.instanceColor) m.instanceColor.needsUpdate = true;
+        crowdMeshes.push(m);
+      });
+    };
 
     /* ── Les poings levés ──────────────────────────────── */
     const fistTex = keep(makeFistTexture());
@@ -309,18 +335,20 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       const heat = Math.min(1, st.intensity + ovK * 0.8);
 
       // foule : houle permanente, plus nerveuse quand ça chauffe
-      const bobSpeed = 1.1 + heat * 2.4;
-      for (let i = 0; i < crowdCount; i++) {
-        const b = crowdBase[i];
-        const bob = Math.sin(t * bobSpeed * b.amp + b.phase) * (0.035 + heat * 0.09);
-        const swayR = Math.sin(t * 0.7 * b.amp + b.phase * 2) * (0.01 + heat * 0.05);
-        dummy.position.set(b.x, b.y + Math.max(0, bob), b.z);
-        dummy.rotation.set(0, 0, swayR);
-        dummy.scale.set(b.s, b.s, 1);
-        dummy.updateMatrix();
-        crowd.setMatrixAt(i, dummy.matrix);
+      if (crowdMeshes.length) {
+        const bobSpeed = 1.1 + heat * 2.4;
+        for (let i = 0; i < crowdCount; i++) {
+          const b = crowdBase[i];
+          const bob = Math.sin(t * bobSpeed * b.amp + b.phase) * (0.035 + heat * 0.09);
+          const swayR = Math.sin(t * 0.7 * b.amp + b.phase * 2) * (0.01 + heat * 0.05);
+          dummy.position.set(b.x, b.y + Math.max(0, bob), b.z);
+          dummy.rotation.set(0, 0, swayR);
+          dummy.scale.set(b.s, b.s, 1);
+          dummy.updateMatrix();
+          b.mesh.setMatrixAt(b.local, dummy.matrix);
+        }
+        for (const m of crowdMeshes) m.instanceMatrix.needsUpdate = true;
       }
-      crowd.instanceMatrix.needsUpdate = true;
 
       // poings : levés en masse à l'ovation, quelques-uns dressés selon la chaleur
       for (let i = 0; i < fistCount; i++) {
@@ -407,7 +435,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
-      crowd.dispose();
+      crowdMeshes.forEach(m => m.dispose());
       fists.dispose();
       disposables.forEach(d => d.dispose && d.dispose());
       renderer.dispose();
