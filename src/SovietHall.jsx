@@ -99,7 +99,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
     const keep = o => { disposables.push(o); return o; };
 
     /* ── Fond enfumé (contre-jour) ─────────────────────── */
-    const backGlowTex = keep(makeGlowTexture('rgba(96,64,34,0.85)', 'rgba(0,0,0,0)'));
+    const backGlowTex = keep(makeGlowTexture('rgba(154,100,50,0.92)', 'rgba(0,0,0,0)'));
     const backGlow = new THREE.Mesh(
       keep(new THREE.PlaneGeometry(70, 30)),
       keep(new THREE.MeshBasicMaterial({
@@ -181,7 +181,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
     const rows = 7;
     const perRow = mobile ? 26 : 42;
     const crowdCount = rows * perRow;
-    const crowdGeo = keep(new THREE.PlaneGeometry(1, 1));
+    const crowdGeo = keep(new THREE.PlaneGeometry(1, 1.45)); // buste entier
     const dummy = new THREE.Object3D();
     const crowdBase = [];
     const crowdMeshes = [];
@@ -198,6 +198,9 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
           s: 1.55 + Math.random() * 0.5 + r * 0.06,
           phase: Math.random() * Math.PI * 2, amp: 0.5 + Math.random(),
           row: r, mesh: null, local: 0,
+          // certains se lèvent quand la salle vit
+          stander: Math.random() < 0.14,
+          standStart: -99, holdDur: 0, nextStand: 4 + Math.random() * 18,
         });
       }
     }
@@ -230,13 +233,40 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       const counts = new Array(nTypes).fill(0);
       assign.forEach(t => counts[t]++);
       const meshes = [];
+      const COATS = ['#42362c', '#37373d', '#3d3125', '#2b3340', '#46262b', '#3a3a30'];
       for (let t = 0; t < nTypes; t++) {
+        // visage détouré (masque circulaire, le fond photo disparaît)
+        const face = document.createElement('canvas');
+        face.width = CELL; face.height = CELL;
+        const fg = face.getContext('2d');
+        fg.drawImage(atlasImg, (t % ATLAS_COLS) * CELL, Math.floor(t / ATLAS_COLS) * CELL, CELL, CELL, 0, 0, CELL, CELL);
+        fg.globalCompositeOperation = 'destination-in';
+        fg.drawImage(maskCanvas, 0, 0);
+
+        // buste complet : manteau + col, la tête posée dessus — des
+        // personnes entières, pas des têtes flottantes
         const c = document.createElement('canvas');
-        c.width = CELL; c.height = CELL;
+        c.width = CELL; c.height = 232;
         const g = c.getContext('2d');
-        g.drawImage(atlasImg, (t % ATLAS_COLS) * CELL, Math.floor(t / ATLAS_COLS) * CELL, CELL, CELL, 0, 0, CELL, CELL);
-        g.globalCompositeOperation = 'destination-in';
-        g.drawImage(maskCanvas, 0, 0);
+        g.fillStyle = COATS[t % COATS.length];
+        g.beginPath();
+        g.moveTo(8, 232);
+        g.bezierCurveTo(12, 152, 42, 120, 80, 118);
+        g.bezierCurveTo(118, 120, 148, 152, 152, 232);
+        g.closePath();
+        g.fill();
+        // épaules éclairées par le projecteur
+        g.fillStyle = 'rgba(255,214,150,0.10)';
+        g.beginPath();
+        g.moveTo(20, 232); g.bezierCurveTo(24, 158, 48, 126, 80, 124);
+        g.lineTo(80, 138); g.bezierCurveTo(56, 140, 36, 168, 32, 232);
+        g.closePath(); g.fill();
+        // certains portent l'écharpe rouge
+        if (t % 4 === 0) {
+          g.fillStyle = '#8c1216';
+          g.fillRect(52, 116, 56, 13);
+        }
+        g.drawImage(face, 0, -4);
         const tex = keep(new THREE.CanvasTexture(c));
         const mat = keep(new THREE.MeshBasicMaterial({
           map: tex, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide,
@@ -317,6 +347,44 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
     pole.position.set(2.25, 3.1, -9.5);
     scene.add(pole);
 
+    // grande banderole-slogan au fond de la salle
+    const sloganCanvas = document.createElement('canvas');
+    sloganCanvas.width = 1024; sloganCanvas.height = 96;
+    {
+      const sg = sloganCanvas.getContext('2d');
+      sg.fillStyle = '#7c1116';
+      sg.fillRect(0, 0, 1024, 96);
+      sg.strokeStyle = 'rgba(244,226,188,0.5)';
+      sg.lineWidth = 3;
+      sg.strokeRect(10, 10, 1004, 76);
+      sg.fillStyle = '#f4e2bc';
+      sg.font = '700 54px Oswald, Impact, sans-serif';
+      sg.textAlign = 'center'; sg.textBaseline = 'middle';
+      sg.fillText('★  TOUT LE POUVOIR À L’ASSEMBLÉE  ★', 512, 52);
+    }
+    const sloganTex = keep(new THREE.CanvasTexture(sloganCanvas));
+    const sloganGeo = keep(new THREE.PlaneGeometry(16, 1.7, 40, 4));
+    const sloganMat = keep(new THREE.MeshBasicMaterial({ map: sloganTex, side: THREE.DoubleSide }));
+    const slogan = new THREE.Mesh(sloganGeo, sloganMat);
+    slogan.position.set(0, 8.5, -16.5);
+    scene.add(slogan);
+    clothMeshes.push({ mesh: slogan, geo: sloganGeo, base: sloganGeo.attributes.position.array.slice(), h: 1.7, pinnedTop: true, waveAmp: 0.09 });
+
+    // guirlandes d'ampoules chaudes au-dessus de la salle
+    const bulbMat = keep(new THREE.SpriteMaterial({
+      map: lampTex, transparent: true, opacity: 0.8,
+      blending: THREE.AdditiveBlending, fog: false,
+    }));
+    [[-10, 6.6, -8.5, 0.9], [-10, 7.4, -12.5, 1.1]].forEach(([x0, y0, z, sag]) => {
+      for (let i = 0; i <= 8; i++) {
+        const k = i / 8;
+        const bulb = new THREE.Sprite(bulbMat);
+        bulb.position.set(x0 + k * 20, y0 - Math.sin(Math.PI * k) * sag, z);
+        bulb.scale.setScalar(0.5);
+        scene.add(bulb);
+      }
+    });
+
     /* ── Boucle ────────────────────────────────────────── */
     let raf = 0;
     let disposed = false;
@@ -341,9 +409,30 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
           const b = crowdBase[i];
           const bob = Math.sin(t * bobSpeed * b.amp + b.phase) * (0.035 + heat * 0.09);
           const swayR = Math.sin(t * 0.7 * b.amp + b.phase * 2) * (0.01 + heat * 0.05);
-          dummy.position.set(b.x, b.y + Math.max(0, bob), b.z);
+
+          // se lever / se rasseoir — la salle vit d'elle-même
+          let standK = 0;
+          if (b.stander) {
+            if (b.standStart < 0 && t > b.nextStand) {
+              b.standStart = t;
+              b.holdDur = 1.6 + Math.random() * 3;
+            }
+            if (b.standStart >= 0) {
+              const e = t - b.standStart;
+              if (e < 0.45) standK = e / 0.45;
+              else if (e < 0.45 + b.holdDur) standK = 1;
+              else if (e < 0.95 + b.holdDur) standK = 1 - (e - 0.45 - b.holdDur) / 0.5;
+              else {
+                b.standStart = -99;
+                b.nextStand = t + (8 + Math.random() * 26) / (0.4 + heat);
+              }
+            }
+            // quand la salle est en feu, tout le monde reste debout plus souvent
+          }
+          const lift = standK * 0.5;
+          dummy.position.set(b.x, b.y + Math.max(0, bob) + lift, b.z);
           dummy.rotation.set(0, 0, swayR);
-          dummy.scale.set(b.s, b.s, 1);
+          dummy.scale.set(b.s, b.s * (1 + standK * 0.1), 1);
           dummy.updateMatrix();
           b.mesh.setMatrixAt(b.local, dummy.matrix);
         }
@@ -398,7 +487,8 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       cones.forEach((cone, i) => {
         cone.rotation.z = (i - 1) * 0.1 + Math.sin(t * 0.24 + i * 2.1) * 0.06;
       });
-      coneMat.opacity = 0.045 + heat * 0.03 + Math.sin(t * 9) * 0.004;
+      coneMat.opacity = 0.06 + heat * 0.035 + Math.sin(t * 9) * 0.004;
+      bulbMat.opacity = 0.75 + Math.sin(t * 13.7) * 0.05 + Math.sin(t * 3.1) * 0.04;
 
       // poussière qui retombe dans la lumière
       const dp = dustGeo.attributes.position.array;

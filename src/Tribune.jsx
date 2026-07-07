@@ -74,6 +74,29 @@ async function fetchVoice(text, voiceId) {
 const SPEECH_LANGS = { olga: 'ru-RU', diego: 'es-ES', wei: 'zh-CN', amara: 'ar-SA', john: 'en-GB', greta: 'de-DE' };
 const SPEECH_PITCH = { olga: 0.75, diego: 1.05, wei: 1.1, amara: 1.0, john: 0.7, greta: 0.95 };
 
+/* La salle vit : des voix lancent des interjections dans toutes les langues */
+const INTERJECTIONS = [
+  ['ru-RU', ['Да!', 'Точно!', 'Верно!', 'Слушайте, слушайте!']],
+  ['es-ES', ['¡Eso es!', '¡Claro!', '¡Que hable!']],
+  ['de-DE', ['Genau!', 'Richtig!', 'Weiter!']],
+  ['en-GB', ['Hear, hear!', 'Aye!', 'Go on!']],
+  ['ar-SA', ['نعم!', 'صحيح!']],
+  ['zh-CN', ['对!', '说得好!']],
+  ['fr-FR', ['Bravo !', 'Exact !', 'Qu’il parle !']],
+];
+
+function crowdInterjection(volume = 0.3) {
+  try {
+    const [lang, words] = INTERJECTIONS[Math.floor(Math.random() * INTERJECTIONS.length)];
+    const u = new SpeechSynthesisUtterance(words[Math.floor(Math.random() * words.length)]);
+    u.lang = lang;
+    u.volume = volume;
+    u.rate = 1 + Math.random() * 0.2;
+    u.pitch = 0.7 + Math.random() * 0.6;
+    speechSynthesis.speak(u);
+  } catch { /* ignore */ }
+}
+
 function speakFallback(text, memberId) {
   return new Promise(resolve => {
     try {
@@ -131,32 +154,44 @@ function createAudioEngine() {
   const roomG = ctx.createGain(); roomG.gain.value = 0.16;
   room.connect(roomF); roomF.connect(roomG); roomG.connect(master); room.start();
 
-  let heat = 0.25; // 0..1 : la salle est d'autant plus bruyante qu'elle est chaude
+  let heat = 0.25;  // 0..1 : la salle est d'autant plus bruyante qu'elle est chaude
+  let boost = 0;    // surchauffe passagère (réactions de la salle)
+  let dead = false;
 
-  // Brouhaha de foule : plusieurs « voix » de bavardage (bruit en bande
-  // modulé au rythme de syllabes), qui se densifient avec la chaleur
-  const babble = [];
-  for (let i = 0; i < 5; i++) {
-    const src = noiseSrc();
-    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 2.4;
-    f.frequency.value = 420 + Math.random() * 520;
-    const g = ctx.createGain(); g.gain.value = 0.02;
-    const lfo = ctx.createOscillator(); lfo.frequency.value = 2.4 + Math.random() * 3.2;
-    const depth = ctx.createGain(); depth.gain.value = 0.016;
-    lfo.connect(depth); depth.connect(g.gain);
-    src.connect(f); f.connect(g); g.connect(master);
-    src.start(0, Math.random() * 1.8); lfo.start();
-    babble.push({ f, g, lfo, depth });
+  // Walla humain : des « voix » (dent de scie + formants de voyelles) qui
+  // marmonnent par syllabes, chacune à son rythme — un murmure de gens
+  // qui parlent, pas du vent
+  const wallaTimers = [];
+  for (let i = 0; i < 7; i++) {
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth';
+    const basePitch = i % 2 ? 92 + Math.random() * 48 : 160 + Math.random() * 75;
+    osc.frequency.value = basePitch;
+    const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 5;
+    const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 8;
+    const g = ctx.createGain(); g.gain.value = 0;
+    osc.connect(f1); f1.connect(g);
+    osc.connect(f2); f2.connect(g);
+    g.connect(master);
+    osc.start();
+    const mumble = () => {
+      if (dead) return;
+      const t = ctx.currentTime;
+      const syls = 2 + Math.floor(Math.random() * 6);
+      const vol = (0.009 + Math.random() * 0.011) * (1 + (heat + boost) * 2.6);
+      let tt = t + Math.random() * 0.1;
+      for (let s2 = 0; s2 < syls; s2++) {
+        const dur = 0.08 + Math.random() * 0.13;
+        osc.frequency.setTargetAtTime(basePitch * (0.85 + Math.random() * 0.35), tt, 0.03);
+        f1.frequency.setTargetAtTime(350 + Math.random() * 500, tt, 0.02);
+        f2.frequency.setTargetAtTime(900 + Math.random() * 1500, tt, 0.02);
+        g.gain.setTargetAtTime(vol, tt, 0.025);
+        g.gain.setTargetAtTime(0.0001, tt + dur * 0.62, 0.04);
+        tt += dur;
+      }
+      wallaTimers[i] = setTimeout(mumble, ((tt - t) + 0.2 + Math.random() * 3 / (0.35 + heat + boost)) * 1000);
+    };
+    mumble();
   }
-  const babbleTune = setInterval(() => {
-    for (const b of babble) {
-      b.f.frequency.setTargetAtTime(380 + Math.random() * 640, ctx.currentTime, 0.8);
-      b.lfo.frequency.setTargetAtTime(2 + Math.random() * 4, ctx.currentTime, 0.8);
-      const base = (0.011 + Math.random() * 0.011) * (1 + heat * 3);
-      b.g.gain.setTargetAtTime(base, ctx.currentTime, 1.1);
-      b.depth.gain.setTargetAtTime(base * 0.9, ctx.currentTime, 1.1);
-    }
-  }, 2100);
 
   // Bruits de salle aléatoires : toux, chaises, exclamations lointaines
   const burst = ({ f0, type = 'bandpass', q = 1, dur = 0.12, gain = 0.04, sweep = 0 }) => {
@@ -181,7 +216,8 @@ function createAudioEngine() {
     } else if (pick < 0.55) {   // une chaise qui racle
       burst({ f0: 2000 + Math.random() * 600, q: 9, dur: 0.1, gain: 0.05, sweep: -350 });
     } else if (pick < 0.8) {    // le brouhaha qui enfle brièvement
-      for (const b of babble) b.g.gain.setTargetAtTime(0.05 * (1 + heat), ctx.currentTime, 0.25);
+      boost = Math.max(boost, 0.7);
+      setTimeout(() => { boost = 0; }, 1800);
     } else {                    // une exclamation lointaine
       burst({ f0: 550 + Math.random() * 200, q: 3, dur: 0.28, gain: 0.07, sweep: 260 });
     }
@@ -191,10 +227,8 @@ function createAudioEngine() {
 
   const murmurSwell = () => {
     ctx.resume().catch(() => {});
-    for (const b of babble) b.g.gain.setTargetAtTime(0.09, ctx.currentTime, 0.3);
-    setTimeout(() => {
-      for (const b of babble) b.g.gain.setTargetAtTime(0.02, ctx.currentTime, 1.4);
-    }, 2600);
+    boost = 1.3;
+    setTimeout(() => { boost = 0; }, 2600);
   };
 
   const ovation = (intensity = 1) => {
@@ -221,7 +255,12 @@ function createAudioEngine() {
     }
   };
 
-  const dispose = () => { clearInterval(babbleTune); clearInterval(events); ctx.close().catch(() => {}); };
+  const dispose = () => {
+    dead = true;
+    wallaTimers.forEach(t2 => clearTimeout(t2));
+    clearInterval(events);
+    ctx.close().catch(() => {});
+  };
   return { murmurSwell, ovation, setHeat, dispose };
 }
 
@@ -268,6 +307,8 @@ export default function Tribune({ onExit }) {
 
   const audioRef = useRef(null);
   const hallRef = useRef(null);
+  const heatRef = useRef(0.25);
+  const skipRef = useRef(null);
   const voicePlayerRef = useRef(null);
   const convictionsRef = useRef({});
   const transcriptRef = useRef([]);
@@ -293,33 +334,46 @@ export default function Tribune({ onExit }) {
 
   const playLine = useCallback((line, url) => new Promise(resolve => {
     setCurrent(line);
-    const minDur = Math.max(3400, (line.fr || '').length * 60);
+    const minDur = Math.max(2600, (line.fr || '').length * 55);
+    let done = false;
+    const finish = (delay = 0) => {
+      if (done) return;
+      done = true;
+      skipRef.current = null;
+      setTimeout(resolve, delay);
+    };
+    // un tap n'importe où saute à la suite — interaction fluide
+    skipRef.current = () => {
+      try { speechSynthesis.cancel(); } catch { /* ignore */ }
+      voicePlayerRef.current?.pause();
+      finish(120);
+    };
     const player = voicePlayerRef.current;
     if (url && player) {
-      let done = false;
-      const finish = () => { if (!done) { done = true; setTimeout(resolve, 800); } };
-      player.onended = finish;
+      player.onended = () => finish(650);
       player.src = url;
       player.volume = 0.92;
-      player.play().catch(() => setTimeout(resolve, minDur));
-      setTimeout(finish, 20000);   // garde-fou
+      player.play().catch(() => setTimeout(() => finish(0), minDur));
+      setTimeout(() => finish(0), 20000);   // garde-fou
     } else if (line.vo && line.member) {
       // Pas d'ElevenLabs : le témoin parle avec la voix du téléphone,
       // dans sa langue (russe, mandarin, arabe…)
       const t0 = Date.now();
       speakFallback(line.vo, line.member).then(ok => {
         const elapsed = Date.now() - t0;
-        const pad = ok ? Math.max(600, 2400 - elapsed) : Math.max(300, minDur - elapsed);
-        setTimeout(resolve, pad);
+        finish(ok ? Math.max(450, 2000 - elapsed) : Math.max(200, minDur - elapsed));
       });
     } else {
-      setTimeout(resolve, minDur);
+      setTimeout(() => finish(0), minDur);
     }
   }), []);
 
   const runRound = useCallback(async (argumentText, currentRound, currentCause) => {
     setGameError(null);
     setPhase('playing');
+    // réaction immédiate de la salle dès que tu prends la parole
+    audioRef.current?.murmurSwell();
+    hallRef.current?.murmur();
     setCurrent({ dida: currentRound === 1
       ? 'La salle se tait. Vous montez à la tribune.'
       : 'L’assemblée pèse vos mots…' });
@@ -353,11 +407,17 @@ export default function Tribune({ onExit }) {
     }
     urls.forEach(u => { if (u) URL.revokeObjectURL(u); });
 
-    if (data.fx === 'ovation') { audioRef.current?.ovation(1); hallRef.current?.ovation(); }
+    if (data.fx === 'ovation') {
+      audioRef.current?.ovation(1);
+      hallRef.current?.ovation();
+      // des voix crient depuis la salle
+      crowdInterjection(0.55);
+      setTimeout(() => crowdInterjection(0.45), 900);
+    }
     if (data.fx === 'murmur') { audioRef.current?.murmurSwell(); hallRef.current?.murmur(); }
     if (data.dida) {
       setCurrent({ dida: data.dida });
-      await wait(2800);
+      await wait(2000);
     }
 
     // Mise à jour des convictions
@@ -372,6 +432,7 @@ export default function Tribune({ onExit }) {
     const avg = MEMBERS.reduce((s, m) => s + (next[m.id] ?? START_CONVICTION), 0) / MEMBERS.length;
     hallRef.current?.setIntensity(avg / 100);
     audioRef.current?.setHeat(avg / 100);
+    heatRef.current = avg / 100;
 
     transcriptRef.current = [
       ...transcriptRef.current,
@@ -381,7 +442,7 @@ export default function Tribune({ onExit }) {
 
     setCurrent(null);
     setPhase('state');
-    await wait(3600);
+    await wait(2600);
     if (abortRef.current) return;
 
     if (currentRound >= ROUNDS) {
@@ -460,6 +521,19 @@ export default function Tribune({ onExit }) {
     };
   }, []);
 
+  // Des voix fusent de la salle pendant toute la séance
+  useEffect(() => {
+    if (phase === 'door') return;
+    const id = setInterval(() => {
+      try {
+        if (speechSynthesis.speaking) return;
+        if (Math.random() > 0.28 + heatRef.current * 0.45) return;
+        crowdInterjection(0.22 + heatRef.current * 0.2);
+      } catch { /* ignore */ }
+    }, 4200);
+    return () => clearInterval(id);
+  }, [phase]);
+
   const speaker = current?.member ? memberById(current.member) : null;
   const convincedCount = MEMBERS.filter(m => (convictions[m.id] ?? 0) >= CONVINCED_AT).length;
   const won = convincedCount >= 4;
@@ -467,7 +541,7 @@ export default function Tribune({ onExit }) {
   const stance = v => v >= CONVINCED_AT ? 'convaincu·e' : v <= HOSTILE_AT ? 'hostile' : 'sceptique';
 
   return (
-    <div className="tr-stage">
+    <div className="tr-stage" onClick={phase === 'playing' ? () => skipRef.current?.() : undefined}>
       {/* La salle : foule, faisceaux, bannières — vivante en permanence */}
       <SovietHall ref={hallRef} />
       <div className="tr-vignette" />
@@ -498,6 +572,7 @@ export default function Tribune({ onExit }) {
         <div className={'tr-subzone' + (speaker ? ` tr-subzone-${speaker.side === 'l' ? 'r' : 'l'}` : '')}>
           {current.vo && <div className="tr-vo" dir="auto">{current.vo}</div>}
           <div className={'tr-fr' + (current.dida ? ' dida' : '')}>{current.fr || current.dida}</div>
+          {!current.dida && <div className="tr-skip-hint">toucher l’écran pour passer</div>}
         </div>
       )}
 

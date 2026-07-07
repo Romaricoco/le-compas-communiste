@@ -26,8 +26,8 @@
 /* Vignettage cinéma par-dessus la salle */
 .tr-vignette {
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse 70% 62% at 50% 44%,
-    transparent 40%, rgba(0,0,0,0.5) 76%, rgba(0,0,0,0.9) 100%);
+  background: radial-gradient(ellipse 74% 66% at 50% 44%,
+    transparent 48%, rgba(0,0,0,0.35) 78%, rgba(0,0,0,0.78) 100%);
   pointer-events: none;
   z-index: 18;
 }
@@ -328,6 +328,15 @@
   letter-spacing: .3em;
   text-transform: uppercase;
   color: rgba(216,213,207,0.32);
+}
+.tr-skip-hint {
+  margin-top: 14px;
+  font-family: "Space Mono", monospace;
+  font-size: 9px;
+  letter-spacing: .26em;
+  text-transform: uppercase;
+  color: rgba(216,213,207,0.22);
+  animation: tr-fadein 2s ease 1.4s both;
 }
 
 /* carton d'état : une ligne de chips discrètes */
