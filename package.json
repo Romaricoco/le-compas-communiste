@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node --env-file=.env server.js",
-    "build": "vite build",
+    "build": "node scripts/fetch-portraits.mjs && vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },

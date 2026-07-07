@@ -12,12 +12,13 @@ import './Tribune.css';
 const photoUrl = id => `https://unsplash.com/photos/${id}/download?force=true&w=640`;
 
 const MEMBERS = [
-  { id: 'olga',  name: 'Olga',  lang: 'Русский',  role: 'vétérane syndicaliste', photo: photoUrl('cwZGbT9S2HU'), voice: '21m00Tcm4TlvDq8ikWAM', side: 'l' },
-  { id: 'diego', name: 'Diego', lang: 'Español',  role: 'jeune anarchiste',      photo: photoUrl('ApDREtVkv5Y'), voice: 'VR6AewLTigWG4xSOukaG', side: 'r' },
-  { id: 'wei',   name: 'Wei',   lang: '中文',      role: 'matérialiste',          photo: photoUrl('8ukPkmUuSd8'), voice: 'pNInz6obpgDQGcFmaJgB', side: 'l' },
-  { id: 'amara', name: 'Amara', lang: 'العربية',   role: 'internationaliste',     photo: photoUrl('4cA1jDfaVJU'), voice: 'EXAVITQu4vr4xnSDxMaL', side: 'r' },
-  { id: 'john',  name: 'John',  lang: 'English',  role: 'ouvrier sceptique',     photo: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX', side: 'l' },
-  { id: 'greta', name: 'Greta', lang: 'Deutsch',  role: 'intellectuelle',        photo: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O', side: 'r' },
+  /* photo : servie par le site (téléchargée au build) ; remote : repli Unsplash */
+  { id: 'olga',  name: 'Olga',  lang: 'Русский',  role: 'vétérane syndicaliste', photo: '/portraits/olga.jpg',  remote: photoUrl('cwZGbT9S2HU'), voice: '21m00Tcm4TlvDq8ikWAM', side: 'l' },
+  { id: 'diego', name: 'Diego', lang: 'Español',  role: 'jeune anarchiste',      photo: '/portraits/diego.jpg', remote: photoUrl('ApDREtVkv5Y'), voice: 'VR6AewLTigWG4xSOukaG', side: 'r' },
+  { id: 'wei',   name: 'Wei',   lang: '中文',      role: 'matérialiste',          photo: '/portraits/wei.jpg',   remote: photoUrl('8ukPkmUuSd8'), voice: 'pNInz6obpgDQGcFmaJgB', side: 'l' },
+  { id: 'amara', name: 'Amara', lang: 'العربية',   role: 'internationaliste',     photo: '/portraits/amara.jpg', remote: photoUrl('4cA1jDfaVJU'), voice: 'EXAVITQu4vr4xnSDxMaL', side: 'r' },
+  { id: 'john',  name: 'John',  lang: 'English',  role: 'ouvrier sceptique',     photo: '/portraits/john.jpg',  remote: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX', side: 'l' },
+  { id: 'greta', name: 'Greta', lang: 'Deutsch',  role: 'intellectuelle',        photo: '/portraits/greta.jpg', remote: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O', side: 'r' },
 ];
 const memberById = id => MEMBERS.find(m => m.id === id);
 
@@ -223,12 +224,8 @@ export default function Tribune({ onExit }) {
     player.play().catch(() => {});
     voicePlayerRef.current = player;
 
-    // Sans clé serveur ni clé locale, proposer la saisie
-    if (!getLocalKey()) {
-      fetch('/api/tts').then(r => r.json()).then(d => {
-        if (d && d.cle_configuree === false) setNeedKey(true);
-      }).catch(() => {});
-    }
+    // Préchauffe les portraits pendant que le joueur écrit sa cause
+    MEMBERS.forEach(m => { const img = new Image(); img.src = m.photo; });
 
     setPhase('cause');
   }, []);
@@ -260,7 +257,7 @@ export default function Tribune({ onExit }) {
     let data;
     try {
       data = await callTribuneAPI(currentCause, argumentText, transcriptRef.current, convictionsRef.current, currentRound);
-      if (!Array.isArray(data.lines)) throw new Error(‘réponse malformée’);
+      if (!Array.isArray(data.lines)) throw new Error('réponse malformée');
     } catch (err) {
       const msg = String(err.message || err);
       if (/mistral|401|403/i.test(msg)) {
@@ -269,7 +266,7 @@ export default function Tribune({ onExit }) {
       } else {
         setGameError(`L’assemblée est injoignable (${msg.slice(0, 100)}). Réessaie.`);
       }
-      setPhase(‘speak’);
+      setPhase('speak');
       return;
     }
 
@@ -382,13 +379,18 @@ export default function Tribune({ onExit }) {
   return (
     <div className="tr-stage">
       {/* Le témoin qui parle : gros plan décalé sur noir absolu */}
-      {phase === 'playing' && speaker && !imgFail[speaker.id] && (
+      {phase === 'playing' && speaker && imgFail[speaker.id] !== 'fail' && (
         <div key={`${speaker.id}-${current.fr}`} className={`tr-witness tr-witness-${speaker.side}`}>
           <img
-            src={speaker.photo}
+            src={imgFail[speaker.id] === 'remote' ? speaker.remote : speaker.photo}
             alt=""
             loading="eager"
-            onError={() => setImgFail(f => ({ ...f, [speaker.id]: true }))}
+            onError={() =>
+              setImgFail(f => ({
+                ...f,
+                [speaker.id]: f[speaker.id] === 'remote' ? 'fail' : 'remote',
+              }))
+            }
           />
         </div>
       )}
