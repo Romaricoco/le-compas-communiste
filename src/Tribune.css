@@ -52,35 +52,19 @@
 .tr-witness-l { left: 6vw; transform: translateY(-50%); }
 .tr-witness-r { right: 6vw; transform: translateY(-50%); }
 
-.tr-witness img {
+.tr-witness .cw-fig {
   width: 100%; height: 100%;
-  object-fit: cover;
-  object-position: center 18%;
   display: block;
-  /* Lumière dure et frontale : contraste fort, détail de peau
-     conservé, désaturation presque totale, hautes lumières
-     franches — pas de diffusion romantique. */
-  filter: grayscale(.92) contrast(1.45) brightness(.88) sepia(.08);
-  /* Les bords se dissolvent dans le noir absolu */
-  -webkit-mask-image: radial-gradient(ellipse 62% 58% at 50% 40%, #000 46%, transparent 78%);
-  mask-image: radial-gradient(ellipse 62% 58% at 50% 40%, #000 46%, transparent 78%);
-  /* Vivant : lent zoom d'interview (la caméra pousse vers le
-     visage pendant la parole) + micro-respiration */
-  animation:
-    tr-push 12s ease-out both,
-    tr-breathe 4.6s ease-in-out 1.5s infinite;
+  /* le bas du personnage se dissout dans le noir, pas de contour dur */
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+  /* la caméra pousse lentement — zoom documentaire */
+  animation: tr-push 12s ease-out both;
 }
 
-/* La caméra pousse lentement — zoom documentaire */
 @keyframes tr-push {
   from { transform: scale(1); }
-  to   { transform: scale(1.09); }
-}
-
-/* Respiration : imperceptible oscillation verticale + luminosité */
-@keyframes tr-breathe {
-  0%, 100% { filter: grayscale(.92) contrast(1.45) brightness(.88) sepia(.08); }
-  50%      { filter: grayscale(.92) contrast(1.45) brightness(.925) sepia(.08); }
+  to   { transform: scale(1.06); }
 }
 
 @keyframes tr-witness-in {

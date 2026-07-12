@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import SovietHall from './SovietHall.jsx';
+import CartoonWitness from './CartoonWitness.jsx';
 import './Tribune.css';
 
 /* ══════════════════════════════════════════════════════════
@@ -301,7 +302,6 @@ export default function Tribune({ onExit }) {
   const [current, setCurrent] = useState(null);   // { member?, vo?, fr } | { dida }
   const [convictions, setConvictions] = useState({});
   const [gameError, setGameError] = useState(null);
-  const [imgFail, setImgFail] = useState({});
   const [needMistralKey, setNeedMistralKey] = useState(false);
   const [mistralKeyInput, setMistralKeyInput] = useState('');
 
@@ -546,20 +546,10 @@ export default function Tribune({ onExit }) {
       <SovietHall ref={hallRef} />
       <div className="tr-vignette" />
 
-      {/* Le témoin qui parle : gros plan décalé sur la salle */}
-      {phase === 'playing' && speaker && imgFail[speaker.id] !== 'fail' && (
-        <div key={`${speaker.id}-${current.fr}`} className={`tr-witness tr-witness-${speaker.side}`}>
-          <img
-            src={imgFail[speaker.id] === 'remote' ? speaker.remote : speaker.photo}
-            alt=""
-            loading="eager"
-            onError={() =>
-              setImgFail(f => ({
-                ...f,
-                [speaker.id]: f[speaker.id] === 'remote' ? 'fail' : 'remote',
-              }))
-            }
-          />
+      {/* Le témoin qui parle : personnage en aplats, vraiment articulé */}
+      {phase === 'playing' && speaker && (
+        <div key={speaker.id} className={`tr-witness tr-witness-${speaker.side}`}>
+          <CartoonWitness memberId={speaker.id} speaking={!current.dida} />
         </div>
       )}
 

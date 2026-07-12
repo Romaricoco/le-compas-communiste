@@ -1,0 +1,108 @@
+/* ══════════════════════════════════════════════════════════
+   TÉMOIN EN APLATS — encre noire, un accent rouge, articulé
+   ══════════════════════════════════════════════════════════ */
+
+.cw-fig {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  filter: drop-shadow(0 10px 26px rgba(0,0,0,0.6));
+}
+
+/* trait d'encre épais et cohérent sur toutes les formes */
+.cw-fig path,
+.cw-fig ellipse,
+.cw-fig circle,
+.cw-fig rect {
+  stroke: #0c0a08;
+  stroke-width: 2;
+  paint-order: fill stroke;
+}
+.cw-ink {
+  stroke: #0c0a08 !important;
+  stroke-width: 2.6 !important;
+}
+
+/* respiration + léger balancement du corps entier */
+.cw-body {
+  transform-box: view-box;
+  transform-origin: 100px 320px;
+  animation: cw-breathe var(--cw-idle) ease-in-out infinite;
+}
+@keyframes cw-breathe {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-3px) rotate(0.6deg); }
+}
+
+/* tête : tourne légèrement, comme une vraie attention portée à la salle */
+.cw-head {
+  animation: cw-look 7.4s ease-in-out infinite;
+}
+@keyframes cw-look {
+  0%, 100% { transform: rotate(0deg); }
+  30%      { transform: rotate(-2.4deg); }
+  65%      { transform: rotate(2deg); }
+}
+
+/* clignement des yeux */
+.cw-eyes {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cw-blink 5.2s ease-in-out var(--cw-blink) infinite;
+}
+@keyframes cw-blink {
+  0%, 92%, 100% { transform: scaleY(1); }
+  95%           { transform: scaleY(0.08); }
+}
+
+/* bras au repos : léger balancement passif */
+.cw-arm-l { animation: cw-sway-l 5.6s ease-in-out infinite; }
+.cw-arm-r { animation: cw-sway-r 5.6s ease-in-out infinite; }
+@keyframes cw-sway-l {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(-3deg); }
+}
+@keyframes cw-sway-r {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(3deg); }
+}
+
+/* bouche fermée au repos */
+.cw-mouth { transform-box: fill-box; transform-origin: center; }
+
+/* ── En pleine parole : le corps s'anime pour de vrai ─────── */
+.cw-speaking .cw-mouth {
+  animation: cw-talk 0.24s steps(1) infinite;
+}
+@keyframes cw-talk {
+  0%   { transform: scaleY(1); }
+  30%  { transform: scaleY(2.4); }
+  60%  { transform: scaleY(0.6); }
+  100% { transform: scaleY(1.6); }
+}
+
+.cw-speaking .cw-arm-r {
+  animation: cw-gesture var(--cw-gest) ease-in-out infinite;
+}
+@keyframes cw-gesture {
+  0%   { transform: rotate(2deg); }
+  35%  { transform: rotate(-18deg); }
+  60%  { transform: rotate(-4deg); }
+  100% { transform: rotate(6deg); }
+}
+
+.cw-speaking .cw-head {
+  animation: cw-nod 1.8s ease-in-out infinite;
+}
+@keyframes cw-nod {
+  0%, 100% { transform: rotate(-1deg); }
+  50%      { transform: rotate(2.2deg); }
+}
+
+.cw-speaking .cw-body {
+  animation: cw-breathe-fast 1.6s ease-in-out infinite;
+}
+@keyframes cw-breathe-fast {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2px); }
+}
