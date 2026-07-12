@@ -73,7 +73,7 @@ async function fetchVoice(text, voiceId) {
 /* ── Voix de secours : synthèse du navigateur dans la langue
       du témoin, quand ElevenLabs n'est pas disponible ──────── */
 const SPEECH_LANGS = { olga: 'ru-RU', diego: 'es-ES', wei: 'zh-CN', amara: 'ar-SA', john: 'en-GB', greta: 'de-DE' };
-const SPEECH_PITCH = { olga: 0.75, diego: 1.05, wei: 1.1, amara: 1.0, john: 0.7, greta: 0.95 };
+const SPEECH_PITCH = { olga: 0.9, diego: 1.02, wei: 1.04, amara: 0.98, john: 0.88, greta: 0.97 };
 
 /* La salle vit : des voix lancent des interjections dans toutes les langues */
 const INTERJECTIONS = [
@@ -92,8 +92,8 @@ function crowdInterjection(volume = 0.3) {
     const u = new SpeechSynthesisUtterance(words[Math.floor(Math.random() * words.length)]);
     u.lang = lang;
     u.volume = volume;
-    u.rate = 1 + Math.random() * 0.2;
-    u.pitch = 0.7 + Math.random() * 0.6;
+    u.rate = 1 + Math.random() * 0.12;
+    u.pitch = 0.92 + Math.random() * 0.2;
     speechSynthesis.speak(u);
   } catch { /* ignore */ }
 }
@@ -129,15 +129,19 @@ function createAudioEngine() {
   if (!AC) return null;
   const ctx = new AC();
   ctx.resume().catch(() => {});
-  // Chaîne de sortie : compresseur + gain de rattrapage — audible
-  // même sur un haut-parleur de téléphone
+  // Chaîne de sortie : compresseur (nivelle) → gain de rattrapage →
+  // limiteur final (empêche toute saturation numérique en sortie,
+  // quel que soit le nombre de sources qui s'additionnent).
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -20; comp.knee.value = 12; comp.ratio.value = 5;
-  comp.attack.value = 0.004; comp.release.value = 0.28;
-  const post = ctx.createGain(); post.gain.value = 1.7;
+  comp.threshold.value = -22; comp.knee.value = 10; comp.ratio.value = 6;
+  comp.attack.value = 0.005; comp.release.value = 0.25;
+  const post = ctx.createGain(); post.gain.value = 1.15;
+  const limiter = ctx.createDynamicsCompressor();
+  limiter.threshold.value = -3; limiter.knee.value = 0; limiter.ratio.value = 20;
+  limiter.attack.value = 0.001; limiter.release.value = 0.06;
   const master = ctx.createGain();
   master.gain.value = 1;
-  master.connect(comp); comp.connect(post); post.connect(ctx.destination);
+  master.connect(comp); comp.connect(post); post.connect(limiter); limiter.connect(ctx.destination);
 
   const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
   const data = buf.getChannelData(0);
@@ -152,19 +156,19 @@ function createAudioEngine() {
   // ── Réverbération de salle : convolution avec une réponse
   // impulsionnelle générée (grand hall, decay ~1.8s) — donne à tout
   // le mixage une vraie profondeur spatiale au lieu d'un son "collé".
-  const irLen = Math.floor(ctx.sampleRate * 1.8);
+  const irLen = Math.floor(ctx.sampleRate * 0.9);
   const ir = ctx.createBuffer(2, irLen, ctx.sampleRate);
   for (let ch = 0; ch < 2; ch++) {
     const d = ir.getChannelData(ch);
     for (let i = 0; i < irLen; i++) {
-      const decay = Math.pow(1 - i / irLen, 2.6);
+      const decay = Math.pow(1 - i / irLen, 4.2);
       d[i] = (Math.random() * 2 - 1) * decay;
     }
   }
   const convolver = ctx.createConvolver();
   convolver.buffer = ir;
   convolver.normalize = true;
-  const wetGain = ctx.createGain(); wetGain.gain.value = 0.55;
+  const wetGain = ctx.createGain(); wetGain.gain.value = 0.14;
   const dryBus = ctx.createGain(); dryBus.gain.value = 1;
   dryBus.connect(master);
   dryBus.connect(convolver); convolver.connect(wetGain); wetGain.connect(master);
