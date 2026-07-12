@@ -149,36 +149,69 @@ function createAudioEngine() {
   }
   const noiseSrc = () => { const s = ctx.createBufferSource(); s.buffer = buf; s.loop = true; return s; };
 
-  // Souffle grave de grand hall — discret (fini le bruit de mer)
+  // ── Réverbération de salle : convolution avec une réponse
+  // impulsionnelle générée (grand hall, decay ~1.8s) — donne à tout
+  // le mixage une vraie profondeur spatiale au lieu d'un son "collé".
+  const irLen = Math.floor(ctx.sampleRate * 1.8);
+  const ir = ctx.createBuffer(2, irLen, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    for (let i = 0; i < irLen; i++) {
+      const decay = Math.pow(1 - i / irLen, 2.6);
+      d[i] = (Math.random() * 2 - 1) * decay;
+    }
+  }
+  const convolver = ctx.createConvolver();
+  convolver.buffer = ir;
+  convolver.normalize = true;
+  const wetGain = ctx.createGain(); wetGain.gain.value = 0.55;
+  const dryBus = ctx.createGain(); dryBus.gain.value = 1;
+  dryBus.connect(master);
+  dryBus.connect(convolver); convolver.connect(wetGain); wetGain.connect(master);
+
+  // Chaque source se connecte à dryBus (jamais directement à master) —
+  // elle profite ainsi automatiquement de la salle.
+  const pan = (src, p) => {
+    const panner = ctx.createStereoPanner(); panner.pan.value = p;
+    src.connect(panner); panner.connect(dryBus);
+    return panner;
+  };
+
+  // Souffle grave de grand hall — discret
   const room = noiseSrc();
   const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 150;
   const roomG = ctx.createGain(); roomG.gain.value = 0.16;
-  room.connect(roomF); roomF.connect(roomG); roomG.connect(master); room.start();
+  room.connect(roomF); roomF.connect(roomG); pan(roomG, 0); room.start();
 
   let heat = 0.25;  // 0..1 : la salle est d'autant plus bruyante qu'elle est chaude
   let boost = 0;    // surchauffe passagère (réactions de la salle)
   let dead = false;
 
-  // Walla humain : des « voix » (dent de scie + formants de voyelles) qui
-  // marmonnent par syllabes, chacune à son rythme — un murmure de gens
-  // qui parlent, pas du vent
+  // ── Walla humain à deux profondeurs ──────────────────────
+  // "près" : peu de voix, présentes, peu filtrées, au centre.
+  // "loin" : plus de voix, étouffées, étalées en stéréo — un vrai
+  // fond de salle avec de la profondeur, pas un mur uniforme.
   const wallaTimers = [];
-  for (let i = 0; i < 7; i++) {
+  const makeWallaVoice = (near, panPos) => {
     const osc = ctx.createOscillator(); osc.type = 'sawtooth';
-    const basePitch = i % 2 ? 92 + Math.random() * 48 : 160 + Math.random() * 75;
+    const basePitch = Math.random() < 0.5 ? 92 + Math.random() * 48 : 160 + Math.random() * 75;
     osc.frequency.value = basePitch;
     const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 5;
     const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 8;
+    const muffle = ctx.createBiquadFilter();
+    muffle.type = 'lowpass'; muffle.frequency.value = near ? 4200 : 1350;
     const g = ctx.createGain(); g.gain.value = 0;
-    osc.connect(f1); f1.connect(g);
-    osc.connect(f2); f2.connect(g);
-    g.connect(master);
+    osc.connect(f1); f1.connect(muffle);
+    osc.connect(f2); f2.connect(muffle);
+    muffle.connect(g);
+    pan(g, panPos);
     osc.start();
+    const baseVol = near ? 0.02 : 0.008;
     const mumble = () => {
       if (dead) return;
       const t = ctx.currentTime;
       const syls = 2 + Math.floor(Math.random() * 6);
-      const vol = (0.009 + Math.random() * 0.011) * (1 + (heat + boost) * 2.6);
+      const vol = (baseVol * (0.7 + Math.random() * 0.6)) * (1 + (heat + boost) * 2.6);
       let tt = t + Math.random() * 0.1;
       for (let s2 = 0; s2 < syls; s2++) {
         const dur = 0.08 + Math.random() * 0.13;
@@ -189,13 +222,16 @@ function createAudioEngine() {
         g.gain.setTargetAtTime(0.0001, tt + dur * 0.62, 0.04);
         tt += dur;
       }
-      wallaTimers[i] = setTimeout(mumble, ((tt - t) + 0.2 + Math.random() * 3 / (0.35 + heat + boost)) * 1000);
+      const id = wallaTimers.length;
+      wallaTimers[id] = setTimeout(mumble, ((tt - t) + 0.2 + Math.random() * 3 / (0.35 + heat + boost)) * 1000);
     };
     mumble();
-  }
+  };
+  for (let i = 0; i < 4; i++) makeWallaVoice(true, (Math.random() - 0.5) * 0.5);
+  for (let i = 0; i < 8; i++) makeWallaVoice(false, (Math.random() - 0.5) * 1.7);
 
   // Bruits de salle aléatoires : toux, chaises, exclamations lointaines
-  const burst = ({ f0, type = 'bandpass', q = 1, dur = 0.12, gain = 0.04, sweep = 0 }) => {
+  const burst = ({ f0, type = 'bandpass', q = 1, dur = 0.12, gain = 0.04, sweep = 0, p = 0 }) => {
     const t = ctx.currentTime;
     const s = ctx.createBufferSource(); s.buffer = buf;
     const f = ctx.createBiquadFilter(); f.type = type; f.Q.value = q;
@@ -205,22 +241,23 @@ function createAudioEngine() {
     g.gain.setValueAtTime(0.0001, t);
     g.gain.exponentialRampToValueAtTime(gain, t + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    s.connect(f); f.connect(g); g.connect(master);
+    s.connect(f); f.connect(g); pan(g, p);
     s.start(t, Math.random() * 1.6, dur + 0.05);
   };
   const events = setInterval(() => {
     if (Math.random() > 0.3 + heat * 0.45) return;
     const pick = Math.random();
+    const p = (Math.random() - 0.5) * 1.6;
     if (pick < 0.3) {           // une toux au fond de la salle
-      burst({ f0: 360, type: 'lowpass', dur: 0.13, gain: 0.12 });
-      setTimeout(() => burst({ f0: 320, type: 'lowpass', dur: 0.11, gain: 0.09 }), 200);
+      burst({ f0: 360, type: 'lowpass', dur: 0.13, gain: 0.12, p });
+      setTimeout(() => burst({ f0: 320, type: 'lowpass', dur: 0.11, gain: 0.09, p }), 200);
     } else if (pick < 0.55) {   // une chaise qui racle
-      burst({ f0: 2000 + Math.random() * 600, q: 9, dur: 0.1, gain: 0.05, sweep: -350 });
+      burst({ f0: 2000 + Math.random() * 600, q: 9, dur: 0.1, gain: 0.05, sweep: -350, p });
     } else if (pick < 0.8) {    // le brouhaha qui enfle brièvement
       boost = Math.max(boost, 0.7);
       setTimeout(() => { boost = 0; }, 1800);
     } else {                    // une exclamation lointaine
-      burst({ f0: 550 + Math.random() * 200, q: 3, dur: 0.28, gain: 0.07, sweep: 260 });
+      burst({ f0: 550 + Math.random() * 200, q: 3, dur: 0.28, gain: 0.07, sweep: 260, p });
     }
   }, 1150);
 
@@ -232,6 +269,24 @@ function createAudioEngine() {
     setTimeout(() => { boost = 0; }, 2600);
   };
 
+  // Un cri isolé (voyelle criée, formants dynamiques) — "Oui !", "Ouais !"
+  // générique dans n'importe quelle langue, pour peupler les ovations
+  // de vraies voix humaines plutôt que du bruit filtré seul.
+  const shout = (t0, p) => {
+    const osc = ctx.createOscillator(); osc.type = 'sawtooth';
+    const pitch = 140 + Math.random() * 160;
+    osc.frequency.setValueAtTime(pitch, t0);
+    osc.frequency.exponentialRampToValueAtTime(pitch * (0.7 + Math.random() * 0.2), t0 + 0.32);
+    const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 6;
+    f1.frequency.setValueAtTime(600 + Math.random() * 400, t0);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.05 + Math.random() * 0.04, t0 + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4 + Math.random() * 0.25);
+    osc.connect(f1); f1.connect(g); pan(g, p);
+    osc.start(t0); osc.stop(t0 + 0.75);
+  };
+
   const ovation = (intensity = 1) => {
     ctx.resume().catch(() => {});
     const t0 = ctx.currentTime;
@@ -241,18 +296,44 @@ function createAudioEngine() {
     const rg = ctx.createGain();
     rg.gain.setValueAtTime(0.0001, t0); rg.gain.exponentialRampToValueAtTime(0.3 * intensity, t0 + 0.45);
     rg.gain.exponentialRampToValueAtTime(0.0001, t0 + 3.2);
-    roar.connect(rf); rf.connect(rg); rg.connect(master); roar.start(t0); roar.stop(t0 + 3.4);
+    roar.connect(rf); rf.connect(rg); pan(rg, 0); roar.start(t0); roar.stop(t0 + 3.4);
 
-    const claps = Math.floor(56 * intensity);
+    // chœur de cris épars sur les premières secondes
+    const shouts = Math.floor(10 * intensity);
+    for (let i = 0; i < shouts; i++) {
+      shout(t0 + 0.05 + Math.random() * 1.1, (Math.random() - 0.5) * 1.8);
+    }
+
+    // applaudissements : profil réaliste — départ dense, puis décroissance
+    // exponentielle avec quelques trainards, plutôt qu'une distribution
+    // uniforme sur toute la durée.
+    const claps = Math.floor(90 * intensity);
+    const tau = 1.1;
     for (let i = 0; i < claps; i++) {
-      const t = t0 + 0.15 + Math.random() * 2.4;
+      const t = t0 + 0.1 + Math.min(3.4, -Math.log(1 - Math.random()) * tau);
       const s = ctx.createBufferSource(); s.buffer = buf;
       const f = ctx.createBiquadFilter(); f.type = 'bandpass';
       f.frequency.value = 1400 + Math.random() * 1700; f.Q.value = 1.6;
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.08 + Math.random() * 0.08, t + 0.006);
       g.gain.exponentialRampToValueAtTime(0.0001, t + 0.055);
-      s.connect(f); f.connect(g); g.connect(master); s.start(t, Math.random() * 1.6, 0.09);
+      s.connect(f); f.connect(g); pan(g, (Math.random() - 0.5) * 1.9);
+      s.start(t, Math.random() * 1.6, 0.09);
+    }
+
+    // brève salve rythmée en unisson, comme une salle qui s'accorde
+    if (Math.random() < 0.4) {
+      const rt0 = t0 + 1.3 + Math.random() * 0.8;
+      for (let i = 0; i < 4; i++) {
+        const t = rt0 + i * 0.32;
+        const s = ctx.createBufferSource(); s.buffer = buf;
+        const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1900; f.Q.value = 2;
+        const g = ctx.createGain();
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.13, t + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+        s.connect(f); f.connect(g); pan(g, 0);
+        s.start(t, Math.random() * 1.6, 0.12);
+      }
     }
   };
 
