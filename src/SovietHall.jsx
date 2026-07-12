@@ -228,18 +228,32 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
     atlasImg.src = '/portraits/crowd.jpg';
     atlasImg.onload = () => {
       if (disposed) return;
-      const nTypes = ATLAS_COLS * ATLAS_ROWS;
+      const BASE = ATLAS_COLS * ATLAS_ROWS;
+      const COATS = ['#42362c', '#37373d', '#3d3125', '#2b3340', '#46262b', '#3a3a30', '#332a3a', '#3f3a2a'];
+      // Chaque visage source donne 3 personnes différentes (normal / miroir /
+      // miroir+manteau+écharpe différents) : 20 visages → 60 silhouettes
+      // distinctes, la foule ne montre plus les mêmes clones partout.
+      const VARIANTS = [];
+      for (let i = 0; i < BASE; i++) {
+        VARIANTS.push({ src: i, flip: false, coat: i % COATS.length, scarf: i % 4 === 0 });
+        VARIANTS.push({ src: i, flip: true, coat: (i + 3) % COATS.length, scarf: (i + 2) % 5 === 0 });
+        VARIANTS.push({ src: i, flip: false, coat: (i + 5) % COATS.length, scarf: (i + 1) % 3 === 0 });
+      }
+      const nTypes = VARIANTS.length;
       const assign = crowdBase.map(() => Math.floor(Math.random() * nTypes));
       const counts = new Array(nTypes).fill(0);
       assign.forEach(t => counts[t]++);
       const meshes = [];
-      const COATS = ['#42362c', '#37373d', '#3d3125', '#2b3340', '#46262b', '#3a3a30'];
       for (let t = 0; t < nTypes; t++) {
+        const variant = VARIANTS[t];
         // visage détouré (masque circulaire, le fond photo disparaît)
         const face = document.createElement('canvas');
         face.width = CELL; face.height = CELL;
         const fg = face.getContext('2d');
-        fg.drawImage(atlasImg, (t % ATLAS_COLS) * CELL, Math.floor(t / ATLAS_COLS) * CELL, CELL, CELL, 0, 0, CELL, CELL);
+        fg.save();
+        if (variant.flip) { fg.translate(CELL, 0); fg.scale(-1, 1); }
+        fg.drawImage(atlasImg, (variant.src % ATLAS_COLS) * CELL, Math.floor(variant.src / ATLAS_COLS) * CELL, CELL, CELL, 0, 0, CELL, CELL);
+        fg.restore();
         fg.globalCompositeOperation = 'destination-in';
         fg.drawImage(maskCanvas, 0, 0);
 
@@ -248,7 +262,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
         const c = document.createElement('canvas');
         c.width = CELL; c.height = 232;
         const g = c.getContext('2d');
-        g.fillStyle = COATS[t % COATS.length];
+        g.fillStyle = COATS[variant.coat];
         g.beginPath();
         g.moveTo(8, 232);
         g.bezierCurveTo(12, 152, 42, 120, 80, 118);
@@ -262,7 +276,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
         g.lineTo(80, 138); g.bezierCurveTo(56, 140, 36, 168, 32, 232);
         g.closePath(); g.fill();
         // certains portent l'écharpe rouge
-        if (t % 4 === 0) {
+        if (variant.scarf) {
           g.fillStyle = '#8c1216';
           g.fillRect(52, 116, 56, 13);
         }
@@ -402,12 +416,26 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       const ovK = ovActive ? Math.max(0, 1 - sinceOvation / 3.2) : 0;
       const heat = Math.min(1, st.intensity + ovK * 0.8);
 
-      // foule : houle permanente, plus nerveuse quand ça chauffe
+      // caméra documentaire : dérive lente + secousse — calculée en premier
+      // pour que la foule puisse se tourner vers sa position à jour
+      st.shake *= 0.93;
+      const shk = st.shake;
+      camera.position.x = camBase.x + Math.sin(t * 0.21) * 0.35 + (Math.random() - 0.5) * 0.06 * shk;
+      camera.position.y = camBase.y + Math.sin(t * 0.34) * 0.14 + (Math.random() - 0.5) * 0.05 * shk;
+      camera.position.z = camBase.z - ovK * 0.9;
+      camera.fov = 55 - ovK * 3;
+      camera.updateProjectionMatrix();
+      camera.lookAt(0, 3 + Math.sin(t * 0.17) * 0.2, -11);
+
+      // foule : houle permanente, plus nerveuse quand ça chauffe, et
+      // chaque personne se tourne légèrement vers la caméra — ce sont
+      // de vraies silhouettes en volume, pas un mur de photos plates
       if (crowdMeshes.length) {
         const bobSpeed = 1.1 + heat * 2.4;
         for (let i = 0; i < crowdCount; i++) {
           const b = crowdBase[i];
           const bob = Math.sin(t * bobSpeed * b.amp + b.phase) * (0.035 + heat * 0.09);
+          const yaw = Math.atan2(camera.position.x - b.x, camera.position.z - b.z);
           const swayR = Math.sin(t * 0.7 * b.amp + b.phase * 2) * (0.01 + heat * 0.05);
 
           // se lever / se rasseoir — la salle vit d'elle-même
@@ -431,7 +459,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
           }
           const lift = standK * 0.5;
           dummy.position.set(b.x, b.y + Math.max(0, bob) + lift, b.z);
-          dummy.rotation.set(0, 0, swayR);
+          dummy.rotation.set(0, yaw, swayR);
           dummy.scale.set(b.s, b.s * (1 + standK * 0.1), 1);
           dummy.updateMatrix();
           b.mesh.setMatrixAt(b.local, dummy.matrix);
@@ -452,9 +480,10 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
         }
         if (up > 0.01) {
           const pump = Math.sin(t * 7 + f.phase) * 0.09 * up * (0.4 + heat);
+          const fyaw = Math.atan2(camera.position.x - f.x, camera.position.z - f.z);
           dummy.position.set(f.x, f.y + 0.55 * f.s * up + pump, f.z);
           dummy.scale.set(0.5 * f.s, f.s * up, 1);
-          dummy.rotation.set(0, 0, Math.sin(f.phase) * 0.14);
+          dummy.rotation.set(0, fyaw, Math.sin(f.phase) * 0.14);
         } else {
           dummy.position.set(0, -99, 0);
           dummy.scale.set(0.001, 0.001, 1);
@@ -498,16 +527,6 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
         if (dp[i * 3 + 1] < 0) dp[i * 3 + 1] = 12;
       }
       dustGeo.attributes.position.needsUpdate = true;
-
-      // caméra documentaire : dérive lente + secousse
-      st.shake *= 0.93;
-      const shk = st.shake;
-      camera.position.x = camBase.x + Math.sin(t * 0.21) * 0.35 + (Math.random() - 0.5) * 0.06 * shk;
-      camera.position.y = camBase.y + Math.sin(t * 0.34) * 0.14 + (Math.random() - 0.5) * 0.05 * shk;
-      camera.position.z = camBase.z - ovK * 0.9;
-      camera.fov = 55 - ovK * 3;
-      camera.updateProjectionMatrix();
-      camera.lookAt(0, 3 + Math.sin(t * 0.17) * 0.2, -11);
 
       renderer.render(scene, camera);
     }
