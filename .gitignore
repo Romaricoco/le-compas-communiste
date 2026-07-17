@@ -25,3 +25,5 @@ server.js
 *.sln
 *.sw?
 .vercel
+__pycache__/
+*.pyc
