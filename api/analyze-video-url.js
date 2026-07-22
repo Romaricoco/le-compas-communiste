@@ -177,57 +177,83 @@ export default async function handler(req, res) {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL manquante' });
 
-  // Facebook / Instagram / LinkedIn → analyse via métadonnées Open Graph
-  const isSocial = /facebook\.com|fb\.watch|instagram\.com|linkedin\.com/i.test(url);
+  // Facebook / Instagram / LinkedIn → analyse via oEmbed puis OG scraping
+  const isFacebook = /facebook\.com|fb\.watch/i.test(url);
+  const isSocial = isFacebook || /instagram\.com|linkedin\.com/i.test(url);
   if (isSocial) {
     const apiKey = process.env.MISTRAL_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
+
+    const decodeEntities = s => s
+      .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d));
+
+    let title = '';
+    let description = '';
+    let siteName = 'Facebook';
+
     try {
-      let html = '';
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 8000);
-        const pageResp = await fetch(url, {
-          signal: controller.signal,
-          redirect: 'follow',
-          headers: {
-            'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
-            'Accept-Language': 'fr-FR,fr;q=0.9',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-          },
-        });
-        clearTimeout(timeout);
-        if (pageResp.ok) html = await pageResp.text();
-      } catch (fetchErr) {
-        console.log('[social] fetch error:', fetchErr.message);
+      // 1. oEmbed officiel Facebook (fonctionne pour vidéos/reels publics sans clé)
+      if (isFacebook) {
+        try {
+          const oembedUrl = `https://www.facebook.com/plugins/video/oembed.json/?url=${encodeURIComponent(url)}`;
+          const controller = new AbortController();
+          const t = setTimeout(() => controller.abort(), 6000);
+          const r = await fetch(oembedUrl, { signal: controller.signal, headers: { 'User-Agent': 'curl/8.5.0' } });
+          clearTimeout(t);
+          if (r.ok) {
+            const d = await r.json();
+            title = d.title || '';
+            siteName = d.provider_name || 'Facebook';
+            console.log('[facebook] oembed title:', title);
+          }
+        } catch (e) { console.log('[facebook] oembed error:', e.message); }
       }
 
-      const decodeEntities = s => s
-        .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'")
-        .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(+d));
+      // 2. Si oEmbed n'a pas donné de titre, scraping OG
+      if (!title) {
+        try {
+          const controller = new AbortController();
+          const t = setTimeout(() => controller.abort(), 8000);
+          const r = await fetch(url, {
+            signal: controller.signal,
+            redirect: 'follow',
+            headers: {
+              'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)',
+              'Accept-Language': 'fr-FR,fr;q=0.9',
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            },
+          });
+          clearTimeout(t);
+          if (r.ok) {
+            const html = await r.text();
+            const getOg = (prop) => {
+              const m = html.match(new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']{1,800})["']`, 'i'))
+                || html.match(new RegExp(`<meta[^>]+content=["']([^"']{1,800})["'][^>]+property=["']og:${prop}["']`, 'i'));
+              return m ? decodeEntities(m[1]) : '';
+            };
+            title = title || getOg('title');
+            description = getOg('description');
+            siteName = getOg('site_name') || siteName;
+            console.log('[facebook] og title:', title, 'desc:', description.slice(0, 80));
+          }
+        } catch (e) { console.log('[facebook] og scrape error:', e.message); }
+      }
 
-      const getOg = (prop) => {
-        const m = html.match(new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']{1,800})["']`, 'i'))
-          || html.match(new RegExp(`<meta[^>]+content=["']([^"']{1,800})["'][^>]+property=["']og:${prop}["']`, 'i'));
-        return m ? decodeEntities(m[1]) : '';
-      };
-
-      const ogTitle = getOg('title');
-      const ogDesc = getOg('description');
-      const ogSiteName = getOg('site_name');
-      const contextText = [ogTitle && `Titre : "${ogTitle}"`, ogDesc && `Description : ${ogDesc.slice(0, 800)}`].filter(Boolean).join('\n');
+      const contextText = [title && `Titre : "${title}"`, description && `Description : ${description.slice(0, 800)}`].filter(Boolean).join('\n');
       if (!contextText) {
-        return res.status(400).json({ error: 'Impossible de lire ce lien : le contenu est privé, protégé, ou nécessite une connexion. Colle le texte du post directement dans l\'onglet "Texte / Idée".' });
+        return res.status(400).json({ error: 'Contenu inaccessible (post privé ou protégé). Colle le texte directement dans l\'onglet "Texte / Idée".' });
       }
+
       const result = await callMistral(apiKey, 'mistral-large-latest', [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Analyse ce post ${ogSiteName || 'réseau social'} :\n${contextText}` },
+        { role: 'user', content: `Analyse ce contenu ${siteName} :\n${contextText}` },
       ]);
       const etatVal = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital;
       return res.status(200).json({ ...result, rapport_etat_capital: etatVal, source: 'og_metadata' });
     } catch (err) {
       console.error('[social]', err.message);
-      return res.status(500).json({ error: `Erreur lors de l'analyse : ${err.message}` });
+      return res.status(500).json({ error: `Erreur analyse : ${err.message}` });
     }
   }
 
