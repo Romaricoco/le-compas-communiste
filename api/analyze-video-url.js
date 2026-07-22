@@ -177,8 +177,43 @@ export default async function handler(req, res) {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL manquante' });
 
+  // Facebook / Instagram / LinkedIn → analyse via métadonnées Open Graph
+  const isSocial = /facebook\.com|fb\.watch|instagram\.com|linkedin\.com/i.test(url);
+  if (isSocial) {
+    const apiKey = process.env.MISTRAL_API_KEY;
+    if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
+    try {
+      const pageResp = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+          'Accept-Language': 'fr-FR,fr;q=0.9',
+        },
+      });
+      const html = pageResp.ok ? await pageResp.text() : '';
+      const getOg = (prop) => {
+        const m = html.match(new RegExp(`<meta[^>]+property=["']og:${prop}["'][^>]+content=["']([^"']+)["']`, 'i'))
+          || html.match(new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:${prop}["']`, 'i'));
+        return m ? m[1].replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'") : '';
+      };
+      const ogTitle = getOg('title');
+      const ogDesc = getOg('description');
+      const ogSiteName = getOg('site_name');
+      const contextText = [ogTitle && `Titre : "${ogTitle}"`, ogDesc && `Description : ${ogDesc.slice(0, 800)}`].filter(Boolean).join('\n');
+      if (!contextText) return res.status(400).json({ error: 'Impossible de lire le contenu de ce lien (contenu privé ou protégé).' });
+      const result = await callMistral(apiKey, 'mistral-large-latest', [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: `Analyse ce post ${ogSiteName || 'social'} :\n${contextText}` },
+      ]);
+      const etatVal = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital;
+      return res.status(200).json({ ...result, rapport_etat_capital: etatVal, source: 'og_metadata' });
+    } catch (err) {
+      console.error('[social]', err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
   const match = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
-  if (!match) return res.status(400).json({ error: 'URL YouTube non reconnue.' });
+  if (!match) return res.status(400).json({ error: 'URL non reconnue. Colle un lien YouTube, Facebook, Instagram ou LinkedIn.' });
 
   const videoId = match[1];
   const apiKey = process.env.MISTRAL_API_KEY;

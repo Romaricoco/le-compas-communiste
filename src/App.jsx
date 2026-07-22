@@ -210,7 +210,7 @@ export default function App() {
 
             <div className="mode-tabs">
               <button className={mode === 'text' ? 'active' : ''} onClick={() => { setMode('text'); reset(); }}>✎ Texte / Idée</button>
-              <button className={mode === 'video' ? 'active' : ''} onClick={() => { setMode('video'); reset(); }}>▶ Vidéo YouTube</button>
+              <button className={mode === 'video' ? 'active' : ''} onClick={() => { setMode('video'); reset(); }}>▶ YouTube / Réseaux</button>
               <button className={mode === 'image' ? 'active' : ''} onClick={() => { setMode('image'); reset(); setMediaFile(null); setMediaPreview(null); }}>🖼 Image</button>
             </div>
 
@@ -243,7 +243,7 @@ export default function App() {
                 <input
                   type="url"
                   required
-                  placeholder="https://youtube.com/watch?v=… ou youtu.be/…"
+                  placeholder="YouTube, Facebook, Instagram, LinkedIn…"
                   value={videoUrl}
                   onChange={(e) => setVideoUrl(e.target.value)}
                 />
@@ -321,7 +321,7 @@ export default function App() {
 
                   {mode === 'video' && (
                     <div className="transcript-info">
-                      {scan.hasTranscript ? '✓ Analysé via transcription' : '⚠ Pas de transcription — analysé via URL'}
+                      {scan.source === 'og_metadata' ? '✓ Analysé via métadonnées du lien' : scan.hasTranscript ? '✓ Analysé via transcription' : '⚠ Pas de transcription — analysé via miniatures'}
                     </div>
                   )}
 
