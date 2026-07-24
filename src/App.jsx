@@ -88,7 +88,10 @@ export default function App() {
     setPendingItem({ id: pid, title: label, status: 'scanning' });
     try {
       const res = await fetchPromise;
-      if (!res.ok) throw new Error(`Erreur serveur : ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Erreur serveur : ${res.status}`);
+      }
       const raw = await res.json();
       // normalize État key — API may return rapport_etat_capital or dissolution_etat
       const result = {
