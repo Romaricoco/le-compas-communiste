@@ -37,9 +37,35 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // GET = diagnostic : ouvre /api/analyze dans le navigateur pour savoir
+  // si la clé Mistral est configurée et valide sur Vercel.
+  if (req.method === 'GET') {
+    const key = process.env.MISTRAL_API_KEY;
+    if (!key) {
+      return res.status(200).json({
+        cle_configuree: false,
+        message: 'MISTRAL_API_KEY est absente de Vercel. Va dans Settings → Environment Variables et ajoute-la, puis redéploie.',
+      });
+    }
+    try {
+      const r = await fetch('https://api.mistral.ai/v1/models', { headers: { 'Authorization': `Bearer ${key}` } });
+      if (!r.ok) {
+        return res.status(200).json({
+          cle_configuree: true,
+          cle_valide: false,
+          message: `Mistral refuse la clé (HTTP ${r.status}). Régénère-la sur console.mistral.ai et remplace-la dans Vercel.`,
+        });
+      }
+      return res.status(200).json({ cle_configuree: true, cle_valide: true, message: 'Clé Mistral en ordre.' });
+    } catch (err) {
+      return res.status(200).json({ cle_configuree: true, erreur: String(err).slice(0, 200) });
+    }
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
 
-  const { title } = req.body;
+  const { title } = req.body || {};
   if (!title) return res.status(400).json({ error: 'Titre manquant' });
 
   const apiKey = process.env.MISTRAL_API_KEY;
