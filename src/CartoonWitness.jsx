@@ -1,10 +1,9 @@
 import './CartoonWitness.css';
 
 /* ══════════════════════════════════════════════════════════
-   TÉMOIN EN APLATS — personnage dessiné, vraiment articulé
-   (tête, épaules, bras) plutôt qu'une photo plaquée sur un
-   rectangle. Proportions adultes, traits d'encre, un accent
-   rouge par personnage.
+   TÉMOIN EN APLATS — orateur de soviet, pas accusé de tribunal.
+   Poings levés, bras qui pointent, buste qui se penche : chaque
+   prise de parole a sa gestuelle.
    ══════════════════════════════════════════════════════════ */
 
 const PALETTE = {
@@ -18,8 +17,10 @@ const PALETTE = {
 
 const SEED = { olga: 0, diego: 1, wei: 2, amara: 3, john: 4, greta: 5 };
 
-/* Tête : ovale tapered vers le menton, proportions adultes
-   (largeur ~66, hauteur ~92) — pas une pomme ronde. */
+/* Gestuelles d'orateur — le bras droit pivote depuis l'épaule ;
+   à -150° il passe au-dessus de la tête, poing serré. */
+const POSES = ['fist', 'point', 'open', 'hammer'];
+
 const HEAD_PATH =
   'M67,118 C64,88 76,60 100,58 C124,60 136,88 133,118 ' +
   'C133,148 126,172 100,186 C74,172 67,148 67,118 Z';
@@ -58,17 +59,35 @@ function Eye({ cx }) {
   );
 }
 
-export default function CartoonWitness({ memberId, speaking = false }) {
+/* Main : poing serré (gestes de lutte) ou main ouverte (appel) */
+function Hand({ cx, cy, skin, fist }) {
+  if (fist) {
+    return (
+      <g>
+        <rect x={cx - 11} y={cy - 10} width="22" height="21" rx="7" fill={skin} />
+        <path className="cw-ink" d={`M${cx - 8},${cy - 2} L${cx + 8},${cy - 2}`} fill="none" strokeWidth="1.8" />
+        <path className="cw-ink" d={`M${cx - 8},${cy + 4} L${cx + 8},${cy + 4}`} fill="none" strokeWidth="1.8" />
+      </g>
+    );
+  }
+  return <circle cx={cx} cy={cy} r="10" fill={skin} />;
+}
+
+export default function CartoonWitness({ memberId, speaking = false, pose = 0 }) {
   const p = PALETTE[memberId] || PALETTE.olga;
   const seed = SEED[memberId] || 0;
+  const gesture = POSES[pose % POSES.length];
   const idleDur = (3.4 + (seed % 4) * 0.42).toFixed(2);
   const gestureDur = (0.62 + (seed % 3) * 0.09).toFixed(2);
   const blinkDelay = (1.2 + seed * 0.9).toFixed(2);
+  const fist = gesture === 'fist' || gesture === 'hammer';
 
   return (
     <svg
       viewBox="0 0 200 340"
-      className={'cw-fig' + (speaking ? ' cw-speaking' : '')}
+      className={
+        'cw-fig' + (speaking ? ' cw-speaking' : '') + ' cw-pose-' + gesture
+      }
       style={{ '--cw-idle': idleDur + 's', '--cw-gest': gestureDur + 's', '--cw-blink': blinkDelay + 's' }}
     >
       <g className="cw-body">
@@ -84,15 +103,15 @@ export default function CartoonWitness({ memberId, speaking = false }) {
           <path d="M78,203 C78,214 122,214 122,203 L122,218 C122,227 78,227 78,218 Z" fill={p.scarf} />
         )}
 
-        {/* bras droit (avant, celui qui gesticule) */}
-        <g className="cw-arm cw-arm-r" style={{ transformBox: 'view-box', transformOrigin: '166px 210px' }}>
-          <path d="M166,210 C184,222 194,252 192,286 C191,296 179,297 177,287 C174,256 168,230 156,214 Z" fill={p.coat} />
-          <circle cx="188" cy="290" r="9" fill={p.skin} stroke="none" />
+        {/* bras droit : celui qui harangue — pivote depuis l'épaule,
+            jusqu'au-dessus de la tête pour le poing levé */}
+        <g className="cw-arm cw-arm-r" style={{ transformBox: 'view-box', transformOrigin: '160px 214px' }}>
+          <path d="M160,214 C176,226 186,254 184,288 C183,298 171,299 169,289 C166,258 160,234 150,218 Z" fill={p.coat} />
+          <Hand cx={176} cy={292} skin={p.skin} fist={fist} />
         </g>
 
         {/* cou */}
         <path d="M88,172 L112,172 L112,206 C112,212 88,212 88,206 Z" fill={p.skin} />
-        {/* ombre de mâchoire sur le cou */}
         <path d="M88,178 C94,186 106,186 112,178 L112,188 C106,196 94,196 88,188 Z" fill="#000" opacity="0.18" stroke="none" />
 
         {/* tête */}
@@ -101,18 +120,16 @@ export default function CartoonWitness({ memberId, speaking = false }) {
           <path d={HEAD_PATH} fill={p.skin} />
           {p.style === 'bob' && <Hair p={p} />}
 
-          {/* ombre directionnelle : un seul côté du visage dans la pénombre */}
+          {/* ombre directionnelle : un côté du visage dans la pénombre */}
           <path d="M100,58 C124,60 136,88 133,118 C133,148 126,172 100,186 Z" fill="#000" opacity="0.14" stroke="none" />
 
           {/* sourcils froncés */}
           <path className="cw-ink" d="M72,102 q11,-8 22,-3" fill="none" strokeLinecap="round" />
           <path className="cw-ink" d="M128,102 q-11,-8 -22,-3" fill="none" strokeLinecap="round" />
 
-          {/* yeux */}
           <g transform="translate(84,116)"><Eye cx={0} /></g>
           <g transform="translate(116,116)"><Eye cx={0} /></g>
 
-          {/* arête du nez */}
           <path className="cw-ink" d="M100,118 L96,140 Q100,144 104,140" fill="none" strokeLinecap="round" strokeWidth="2" />
 
           {p.glasses && (
@@ -123,7 +140,6 @@ export default function CartoonWitness({ memberId, speaking = false }) {
             </g>
           )}
 
-          {/* bouche : parle */}
           <rect className="cw-mouth" x="86" y="152" width="28" height="4" rx="2" fill="#2a140f" stroke="none" />
 
           {p.style === 'veil' && (
