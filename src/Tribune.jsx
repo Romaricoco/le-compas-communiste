@@ -360,9 +360,66 @@ function createAudioEngine() {
     osc.start(t0); osc.stop(t0 + 0.75);
   };
 
+  // Un rire isolé : plusieurs pulses "ha-ha-ha" à hauteur descendante,
+  // pas juste un cri — la texture est reconnaissable comme du rire.
+  const laughBurst = (t0, p, pulses = 3) => {
+    const basePitch = 190 + Math.random() * 140;
+    for (let i = 0; i < pulses; i++) {
+      const t = t0 + i * (0.13 + Math.random() * 0.03);
+      const osc = ctx.createOscillator(); osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(basePitch * (1 - i * 0.06), t);
+      osc.frequency.exponentialRampToValueAtTime(basePitch * (0.8 - i * 0.06), t + 0.09);
+      const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 5;
+      f1.frequency.value = 700 + Math.random() * 300;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.04 + Math.random() * 0.03, t + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+      osc.connect(f1); f1.connect(g); pan(g, p);
+      osc.start(t); osc.stop(t + 0.16);
+    }
+  };
+
+  // Rire collectif de la salle — plus léger qu'une ovation, monte vite
+  // et retombe, quelques voix isolées qui pouffent en décalé.
+  const laughter = (intensity = 1) => {
+    ctx.resume().catch(() => {});
+    const t0 = ctx.currentTime;
+    boost = Math.max(boost, 1.1 * intensity);
+    setTimeout(() => { boost = 0; }, 1800);
+    const voices = Math.floor(6 * intensity);
+    for (let i = 0; i < voices; i++) {
+      laughBurst(t0 + Math.random() * 0.6, (Math.random() - 0.5) * 1.8, 2 + Math.floor(Math.random() * 3));
+    }
+    // une voix isolée qui pouffe un peu après coup
+    if (Math.random() < 0.5) laughBurst(t0 + 1.1 + Math.random() * 0.5, (Math.random() - 0.5) * 1.6, 2);
+  };
+
+  // Sifflement d'ovation (deux doigts) : ton net avec vibrato, monte
+  // puis se stabilise — texture bien distincte des cris et des claps.
+  const whistle = (t0, p) => {
+    const osc = ctx.createOscillator(); osc.type = 'sine';
+    const peak = 1900 + Math.random() * 500;
+    osc.frequency.setValueAtTime(900, t0);
+    osc.frequency.exponentialRampToValueAtTime(peak, t0 + 0.18);
+    const vibrato = ctx.createOscillator(); vibrato.frequency.value = 5 + Math.random() * 2;
+    const vibratoDepth = ctx.createGain(); vibratoDepth.gain.value = 25;
+    vibrato.connect(vibratoDepth); vibratoDepth.connect(osc.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.045, t0 + 0.1);
+    g.gain.setTargetAtTime(0.0001, t0 + 0.55 + Math.random() * 0.4, 0.15);
+    osc.connect(g); pan(g, p);
+    osc.start(t0); vibrato.start(t0);
+    osc.stop(t0 + 1.3); vibrato.stop(t0 + 1.3);
+  };
+
   const ovation = (intensity = 1) => {
     ctx.resume().catch(() => {});
     const t0 = ctx.currentTime;
+    // un ou deux sifflets d'enthousiasme, pas systématiques
+    if (Math.random() < 0.55) whistle(t0 + Math.random() * 0.5, (Math.random() - 0.5) * 1.5);
+    if (intensity > 0.7 && Math.random() < 0.3) whistle(t0 + 0.6 + Math.random() * 0.6, (Math.random() - 0.5) * 1.5);
     const roar = noiseSrc();
     const rf = ctx.createBiquadFilter(); rf.type = 'bandpass';
     rf.frequency.setValueAtTime(420, t0); rf.frequency.linearRampToValueAtTime(700, t0 + 1.2); rf.Q.value = 0.55;
@@ -416,7 +473,7 @@ function createAudioEngine() {
     clearInterval(events);
     ctx.close().catch(() => {});
   };
-  return { murmurSwell, ovation, setHeat, dispose };
+  return { murmurSwell, ovation, laughter, setHeat, dispose };
 }
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -576,6 +633,7 @@ export default function Tribune({ onExit }) {
       setTimeout(() => crowdInterjection(0.45), 900);
     }
     if (data.fx === 'murmur') { audioRef.current?.murmurSwell(); hallRef.current?.murmur(); }
+    if (data.fx === 'rire') { audioRef.current?.laughter(1); hallRef.current?.murmur(); }
     if (data.dida) {
       setCurrent({ dida: data.dida });
       await wait(2000);

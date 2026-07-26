@@ -81,28 +81,52 @@
   100% { transform: scaleY(1.6); }
 }
 
+/* Gestuelle d'orateur de meeting, pas de présentateur poli : le bras
+   part loin en arrière puis fauche l'air vers l'avant, façon tribun
+   qui frappe ses mots — grands arcs, pas des petits mouvements de
+   poignet. */
 .cw-speaking .cw-arm-r {
-  animation: cw-gesture var(--cw-gest) ease-in-out infinite;
+  animation: cw-gesture var(--cw-gest) cubic-bezier(.32,.02,.2,1) infinite;
+  transform-origin: 160px 214px;
 }
 @keyframes cw-gesture {
-  0%   { transform: rotate(2deg); }
-  35%  { transform: rotate(-18deg); }
-  60%  { transform: rotate(-4deg); }
-  100% { transform: rotate(6deg); }
+  0%   { transform: rotate(18deg); }
+  22%  { transform: rotate(-58deg); }
+  40%  { transform: rotate(-14deg) scale(1.04); }
+  55%  { transform: rotate(-70deg); }
+  75%  { transform: rotate(-10deg); }
+  100% { transform: rotate(18deg); }
 }
 
+/* le bras gauche n'est pas juste inerte : il contre le mouvement,
+   comme un vrai corps qui cherche son équilibre en parlant */
+.cw-speaking .cw-arm-l {
+  animation: cw-counter 2.6s ease-in-out infinite;
+}
+@keyframes cw-counter {
+  0%, 100% { transform: rotate(-6deg); }
+  50%      { transform: rotate(8deg); }
+}
+
+/* la tête accompagne chaque frappe du bras, pas un simple hochement
+   poli — elle part avec l'élan, façon mime qui insiste */
 .cw-speaking .cw-head {
-  animation: cw-nod 1.8s ease-in-out infinite;
+  animation: cw-nod 1.3s cubic-bezier(.34,.02,.24,1) infinite;
 }
 @keyframes cw-nod {
-  0%, 100% { transform: rotate(-1deg); }
-  50%      { transform: rotate(2.2deg); }
+  0%, 100% { transform: rotate(-5deg) translateY(0); }
+  30%      { transform: rotate(7deg) translateY(-3px); }
+  55%      { transform: rotate(-3deg) translateY(1px); }
 }
 
+/* le buste entier se jette en avant sur l'appui, recule ensuite —
+   la déclamation vient du corps, pas seulement du bras */
 .cw-speaking .cw-body {
-  animation: cw-breathe-fast 1.6s ease-in-out infinite;
+  transform-origin: 100px 340px;
+  animation: cw-lunge 1.3s cubic-bezier(.3,.02,.22,1) infinite;
 }
-@keyframes cw-breathe-fast {
-  0%, 100% { transform: translateY(0); }
-  50%      { transform: translateY(-2px); }
+@keyframes cw-lunge {
+  0%, 100% { transform: translateY(0) rotate(-1.5deg); }
+  30%      { transform: translateY(-4px) rotate(2.5deg) scale(1.015); }
+  55%      { transform: translateY(1px) rotate(-1deg); }
 }
