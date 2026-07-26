@@ -73,7 +73,75 @@ async function fetchVoice(text, voiceId) {
 /* ── Voix de secours : synthèse du navigateur dans la langue
       du témoin, quand ElevenLabs n'est pas disponible ──────── */
 const SPEECH_LANGS = { olga: 'ru-RU', diego: 'es-ES', wei: 'zh-CN', amara: 'ar-SA', john: 'en-GB', greta: 'de-DE' };
+const SPEECH_GENDER = { olga: 'female', diego: 'male', wei: 'female', amara: 'female', john: 'male', greta: 'female' };
 const SPEECH_PITCH = { olga: 0.9, diego: 1.02, wei: 1.04, amara: 0.98, john: 0.88, greta: 0.97 };
+
+// Si aucune voix n'est installée pour la langue exacte, on tente des
+// variantes proches avant de renoncer.
+const LANG_FALLBACKS = {
+  'ru-RU': ['ru'],
+  'es-ES': ['es-MX', 'es-US', 'es'],
+  'zh-CN': ['zh-TW', 'zh-HK', 'zh', 'cmn'],
+  'ar-SA': ['ar-EG', 'ar-AE', 'ar'],
+  'en-GB': ['en-US', 'en-AU', 'en'],
+  'de-DE': ['de-AT', 'de-CH', 'de'],
+  'fr-FR': ['fr-CA', 'fr'],
+};
+
+const QUALITY_HINTS = ['natural', 'neural', 'premium', 'enhanced', 'online', 'wavenet'];
+
+/* Attend le catalogue de voix du navigateur (souvent vide au tout
+   premier appel, rempli de façon asynchrone). */
+function loadVoices() {
+  return new Promise(resolve => {
+    const existing = speechSynthesis.getVoices();
+    if (existing.length) return resolve(existing);
+    const onChange = () => {
+      speechSynthesis.removeEventListener('voiceschanged', onChange);
+      resolve(speechSynthesis.getVoices());
+    };
+    speechSynthesis.addEventListener('voiceschanged', onChange);
+    setTimeout(() => {
+      speechSynthesis.removeEventListener('voiceschanged', onChange);
+      resolve(speechSynthesis.getVoices());
+    }, 1200);
+  });
+}
+
+let voiceCatalog = [];
+const voicePickCache = new Map();
+
+/* Choisit la meilleure voix disponible pour une langue : les voix
+   "réseau" (non locales) et celles marquées Natural/Neural/Premium
+   sonnent nettement mieux que la voix locale par défaut du système,
+   et on préfère un nom cohérent avec le genre du personnage quand le
+   navigateur l'indique (ex. "Google UK English Male/Female"). */
+function pickVoice(lang, gender) {
+  const cacheKey = lang + ':' + gender;
+  if (voicePickCache.has(cacheKey)) return voicePickCache.get(cacheKey);
+  const codes = [lang, ...(LANG_FALLBACKS[lang] || [])];
+  let candidates = [];
+  for (const code of codes) {
+    const exact = voiceCatalog.filter(v => v.lang === code);
+    const prefix = voiceCatalog.filter(v => v.lang.toLowerCase().startsWith(code.slice(0, 2).toLowerCase()));
+    candidates = exact.length ? exact : prefix;
+    if (candidates.length) break;
+  }
+  let best = null, bestScore = -Infinity;
+  for (const v of candidates) {
+    const name = v.name.toLowerCase();
+    let score = 0;
+    if (!v.localService) score += 3;               // voix réseau = quasi toujours meilleure
+    if (QUALITY_HINTS.some(h => name.includes(h))) score += 4;
+    if (gender === 'male' && name.includes('female')) score -= 5;
+    if (gender === 'female' && name.includes('male') && !name.includes('female')) score -= 5;
+    if (name.includes(gender)) score += 2;
+    if (v.default) score += 1;
+    if (score > bestScore) { bestScore = score; best = v; }
+  }
+  voicePickCache.set(cacheKey, best);
+  return best;
+}
 
 /* La salle vit : des voix lancent des interjections dans toutes les langues */
 const INTERJECTIONS = [
@@ -91,9 +159,11 @@ function crowdInterjection(volume = 0.3) {
     const [lang, words] = INTERJECTIONS[Math.floor(Math.random() * INTERJECTIONS.length)];
     const u = new SpeechSynthesisUtterance(words[Math.floor(Math.random() * words.length)]);
     u.lang = lang;
+    const voice = pickVoice(lang, Math.random() < 0.5 ? 'male' : 'female');
+    if (voice) u.voice = voice;
     u.volume = volume;
-    u.rate = 1 + Math.random() * 0.12;
-    u.pitch = 0.92 + Math.random() * 0.2;
+    u.rate = 1 + Math.random() * 0.1;
+    u.pitch = 0.94 + Math.random() * 0.14;
     speechSynthesis.speak(u);
   } catch { /* ignore */ }
 }
@@ -105,10 +175,9 @@ function speakFallback(text, memberId) {
       const u = new SpeechSynthesisUtterance(text);
       const lang = SPEECH_LANGS[memberId] || 'fr-FR';
       u.lang = lang;
-      const voices = speechSynthesis.getVoices();
-      const match = voices.find(v => v.lang === lang) || voices.find(v => v.lang.startsWith(lang.slice(0, 2)));
+      const match = pickVoice(lang, SPEECH_GENDER[memberId] || 'female');
       if (match) u.voice = match;
-      u.rate = 0.92;
+      u.rate = 0.9;
       u.pitch = SPEECH_PITCH[memberId] ?? 1;
       u.volume = 1;
       let done = false;
@@ -411,8 +480,14 @@ export default function Tribune({ onExit }) {
 
     // Préchauffe les portraits pendant que le joueur écrit sa cause
     MEMBERS.forEach(m => { const img = new Image(); img.src = m.photo; });
-    // Préchauffe les voix du navigateur (le catalogue se charge en asynchrone)
-    try { speechSynthesis.getVoices(); } catch { /* ignore */ }
+    // Charge le catalogue de voix du navigateur et choisit la meilleure
+    // par personnage avant que la partie ne commence.
+    try {
+      loadVoices().then(list => {
+        voiceCatalog = list;
+        voicePickCache.clear();
+      });
+    } catch { /* ignore */ }
 
     setPhase('cause');
   }, []);
