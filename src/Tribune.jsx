@@ -875,6 +875,7 @@ export default function Tribune({ onExit }) {
       {/* La salle : foule, faisceaux, bannières — vivante en permanence */}
       <SovietHall ref={hallRef} />
       <div className="tr-vignette" />
+      <div className="tr-grade" />
 
       {/* Le témoin qui parle : personnage en aplats, vraiment articulé */}
       {phase === 'playing' && speaker && (
