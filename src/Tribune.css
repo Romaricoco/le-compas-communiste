@@ -46,7 +46,7 @@
   top: 50%;
   height: min(78vh, 640px);
   aspect-ratio: 3 / 4;
-  z-index: 5;
+  z-index: 20;
   animation: tr-witness-in 1.6s ease both;
 }
 .tr-witness-l { left: 6vw; transform: translateY(-50%); }
@@ -520,6 +520,55 @@
   animation: tr-fadein 3s ease 2.2s both;
 }
 .tr-end-btn:hover { background: rgba(232,228,220,0.06); border-color: rgba(232,228,220,0.65); }
+
+/* ── Duel imprévu : deux témoins qui surgissent face à face ──── */
+.tr-duel {
+  position: absolute;
+  bottom: 12vh;
+  width: min(30vw, 260px);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  animation: tr-duel-in .28s cubic-bezier(.2,1.4,.4,1) both;
+}
+.tr-duel-l { left: 2vw; align-items: flex-start; }
+.tr-duel-r { right: 2vw; align-items: flex-end; }
+.tr-duel-fig {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  filter: drop-shadow(0 8px 22px rgba(0,0,0,0.75));
+}
+.tr-duel-l .tr-duel-fig { transform: scaleX(1); }
+.tr-duel-r .tr-duel-fig { transform: scaleX(-1); }
+.tr-duel-name {
+  margin-top: 4px;
+  font-family: "Space Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: rgba(216,213,207,0.5);
+}
+.tr-duel-line {
+  margin-top: 4px;
+  max-width: 92%;
+  font-family: "Oswald", sans-serif;
+  font-weight: 600;
+  font-size: clamp(14px, 1.8vw, 19px);
+  color: #f2efe8;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.95);
+  line-height: 1.25;
+  text-align: inherit;
+}
+@keyframes tr-duel-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.92); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (max-width: 720px) {
+  .tr-duel { width: 34vw; bottom: 15vh; }
+}
 
 /* ── Sortie ───────────────────────────────────────────── */
 .tr-exit {

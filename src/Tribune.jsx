@@ -154,6 +154,18 @@ const INTERJECTIONS = [
   ['fr-FR', ['Bravo !', 'Exact !', 'Qu’il parle !']],
 ];
 
+/* Irruptions nommées : un témoin précis surgit à l'écran, hors du
+   tour normal — c'est ce qui casse la routine et rend la salle
+   imprévisible. Phrases courtes, dans la langue du témoin. */
+const ERUPTIONS = {
+  olga:  [['Хватит!', 'Assez !'], ['Ложь!', 'Mensonge !'], ['А доказательства?!', 'Et les preuves ?!'], ['Ха! Смешно.', 'Ha ! C’est risible.', 'laugh']],
+  diego: [['¡Basta ya!', 'Ça suffit !'], ['¡Eso es mentira!', 'C’est un mensonge !'], ['¡Al grano!', 'Va au but !'], ['¡Já! ¿En serio?', 'Ha ! Sérieux ?', 'laugh']],
+  wei:   [['够了!', 'Assez !'], ['数据呢?!', 'Et les chiffres ?!'], ['胡说!', 'N’importe quoi !'], ['哈!可笑。', 'Ha ! C’est ridicule.', 'laugh']],
+  amara: [['كفى!', 'Assez !'], ['هذا كذب!', 'C’est un mensonge !'], ['أين الدليل؟!', 'Où est la preuve ?!'], ['هه! تمزح؟', 'Ha ! Tu plaisantes ?', 'laugh']],
+  john:  [['Rubbish!', 'N’importe quoi !'], ['Prove it!', 'Prouve-le !'], ['Get on with it!', 'Viens-en au fait !'], ['Ha! You are joking.', 'Ha ! Tu plaisantes.', 'laugh']],
+  greta: [['Widerspruch!', 'Contradiction !'], ['Das stimmt nicht!', 'C’est faux !'], ['Beweise!', 'Des preuves !'], ['Ha! Lächerlich.', 'Ha ! C’est ridicule.', 'laugh']],
+};
+
 function crowdInterjection(volume = 0.3) {
   try {
     const [lang, words] = INTERJECTIONS[Math.floor(Math.random() * INTERJECTIONS.length)];
@@ -265,21 +277,22 @@ function createAudioEngine() {
   // "loin" : plus de voix, étouffées, étalées en stéréo — un vrai
   // fond de salle avec de la profondeur, pas un mur uniforme.
   const wallaTimers = [];
+  // Bruit filtré et modulé, pas d'oscillateur : une vraie voix murmurée
+  // de loin est du bruit à bande étroite qui glisse, pas un ton pur —
+  // l'onde en dents de scie sonnait comme un synthétiseur qui parle.
   const makeWallaVoice = (near, panPos) => {
-    const osc = ctx.createOscillator(); osc.type = 'sawtooth';
-    const basePitch = Math.random() < 0.5 ? 92 + Math.random() * 48 : 160 + Math.random() * 75;
-    osc.frequency.value = basePitch;
-    const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 5;
-    const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 8;
+    const src = noiseSrc();
+    const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 3.5;
+    const f2 = ctx.createBiquadFilter(); f2.type = 'bandpass'; f2.Q.value = 6;
     const muffle = ctx.createBiquadFilter();
-    muffle.type = 'lowpass'; muffle.frequency.value = near ? 4200 : 1350;
+    muffle.type = 'lowpass'; muffle.frequency.value = near ? 2600 : 1000;
     const g = ctx.createGain(); g.gain.value = 0;
-    osc.connect(f1); f1.connect(muffle);
-    osc.connect(f2); f2.connect(muffle);
+    src.connect(f1); f1.connect(muffle);
+    src.connect(f2); f2.connect(muffle);
     muffle.connect(g);
     pan(g, panPos);
-    osc.start();
-    const baseVol = near ? 0.02 : 0.008;
+    src.start(0, Math.random() * 1.8);
+    const baseVol = near ? 0.045 : 0.02;
     const mumble = () => {
       if (dead) return;
       const t = ctx.currentTime;
@@ -287,12 +300,15 @@ function createAudioEngine() {
       const vol = (baseVol * (0.7 + Math.random() * 0.6)) * (1 + (heat + boost) * 2.6);
       let tt = t + Math.random() * 0.1;
       for (let s2 = 0; s2 < syls; s2++) {
-        const dur = 0.08 + Math.random() * 0.13;
-        osc.frequency.setTargetAtTime(basePitch * (0.85 + Math.random() * 0.35), tt, 0.03);
-        f1.frequency.setTargetAtTime(350 + Math.random() * 500, tt, 0.02);
-        f2.frequency.setTargetAtTime(900 + Math.random() * 1500, tt, 0.02);
-        g.gain.setTargetAtTime(vol, tt, 0.025);
-        g.gain.setTargetAtTime(0.0001, tt + dur * 0.62, 0.04);
+        const dur = 0.09 + Math.random() * 0.15;
+        // les bandes glissent pendant la syllabe — un vrai murmure
+        // n'a pas de hauteur fixe, juste des formants qui bougent
+        f1.frequency.setValueAtTime(280 + Math.random() * 260, tt);
+        f1.frequency.linearRampToValueAtTime(220 + Math.random() * 320, tt + dur);
+        f2.frequency.setValueAtTime(700 + Math.random() * 900, tt);
+        f2.frequency.linearRampToValueAtTime(600 + Math.random() * 1100, tt + dur);
+        g.gain.setTargetAtTime(vol, tt, 0.03);
+        g.gain.setTargetAtTime(0.0001, tt + dur * 0.7, 0.045);
         tt += dur;
       }
       const id = wallaTimers.length;
@@ -345,38 +361,63 @@ function createAudioEngine() {
   // Un cri isolé (voyelle criée, formants dynamiques) — "Oui !", "Ouais !"
   // générique dans n'importe quelle langue, pour peupler les ovations
   // de vraies voix humaines plutôt que du bruit filtré seul.
-  const shout = (t0, p) => {
-    const osc = ctx.createOscillator(); osc.type = 'sawtooth';
-    const pitch = 140 + Math.random() * 160;
-    osc.frequency.setValueAtTime(pitch, t0);
-    osc.frequency.exponentialRampToValueAtTime(pitch * (0.7 + Math.random() * 0.2), t0 + 0.32);
-    const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 6;
-    f1.frequency.setValueAtTime(600 + Math.random() * 400, t0);
+  // Huée : "booo" descendant, bruit filtré tenu — pas un cri bref
+  const boo = (t0, p) => {
+    const src = noiseSrc();
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 4;
+    f.frequency.setValueAtTime(340 + Math.random() * 80, t0);
+    f.frequency.linearRampToValueAtTime(180 + Math.random() * 40, t0 + 0.6);
     const g = ctx.createGain();
     g.gain.setValueAtTime(0.0001, t0);
-    g.gain.exponentialRampToValueAtTime(0.05 + Math.random() * 0.04, t0 + 0.04);
+    g.gain.exponentialRampToValueAtTime(0.05 + Math.random() * 0.04, t0 + 0.12);
+    g.gain.setTargetAtTime(0.0001, t0 + 0.4, 0.22);
+    src.connect(f); f.connect(g); pan(g, p);
+    src.start(t0, Math.random() * 1.6, 0.75); src.stop(t0 + 0.8);
+  };
+
+  // Réaction de foule derrière un duel : encouragements OU huées,
+  // jamais les deux pour la même réplique — la salle prend parti.
+  const crowdReact = (favorable, p) => {
+    ctx.resume().catch(() => {});
+    const t0 = ctx.currentTime;
+    const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) {
+      const t = t0 + Math.random() * 0.4;
+      if (favorable) shout(t, p + (Math.random() - 0.5) * 0.8);
+      else boo(t, p + (Math.random() - 0.5) * 0.8);
+    }
+  };
+
+  const shout = (t0, p) => {
+    const src = noiseSrc();
+    const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 4.5;
+    const start = 500 + Math.random() * 350;
+    f1.frequency.setValueAtTime(start, t0);
+    f1.frequency.exponentialRampToValueAtTime(start * (0.6 + Math.random() * 0.15), t0 + 0.32);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(0.08 + Math.random() * 0.06, t0 + 0.045);
     g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.4 + Math.random() * 0.25);
-    osc.connect(f1); f1.connect(g); pan(g, p);
-    osc.start(t0); osc.stop(t0 + 0.75);
+    src.connect(f1); f1.connect(g); pan(g, p);
+    src.start(t0, Math.random() * 1.6, 0.75); src.stop(t0 + 0.8);
   };
 
   // Un rire isolé : plusieurs pulses "ha-ha-ha" à hauteur descendante,
   // pas juste un cri — la texture est reconnaissable comme du rire.
   const laughBurst = (t0, p, pulses = 3) => {
-    const basePitch = 190 + Math.random() * 140;
+    const basePitch = 550 + Math.random() * 300;
     for (let i = 0; i < pulses; i++) {
       const t = t0 + i * (0.13 + Math.random() * 0.03);
-      const osc = ctx.createOscillator(); osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(basePitch * (1 - i * 0.06), t);
-      osc.frequency.exponentialRampToValueAtTime(basePitch * (0.8 - i * 0.06), t + 0.09);
-      const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 5;
-      f1.frequency.value = 700 + Math.random() * 300;
+      const s = ctx.createBufferSource(); s.buffer = buf;
+      const f1 = ctx.createBiquadFilter(); f1.type = 'bandpass'; f1.Q.value = 4.5;
+      f1.frequency.setValueAtTime(basePitch * (1 - i * 0.05), t);
+      f1.frequency.exponentialRampToValueAtTime(basePitch * (0.75 - i * 0.04), t + 0.1);
       const g = ctx.createGain();
       g.gain.setValueAtTime(0.0001, t);
-      g.gain.exponentialRampToValueAtTime(0.04 + Math.random() * 0.03, t + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
-      osc.connect(f1); f1.connect(g); pan(g, p);
-      osc.start(t); osc.stop(t + 0.16);
+      g.gain.exponentialRampToValueAtTime(0.09 + Math.random() * 0.06, t + 0.018);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.13);
+      s.connect(f1); f1.connect(g); pan(g, p);
+      s.start(t, Math.random() * 1.6, 0.18);
     }
   };
 
@@ -385,14 +426,22 @@ function createAudioEngine() {
   const laughter = (intensity = 1) => {
     ctx.resume().catch(() => {});
     const t0 = ctx.currentTime;
-    boost = Math.max(boost, 1.1 * intensity);
-    setTimeout(() => { boost = 0; }, 1800);
-    const voices = Math.floor(6 * intensity);
+    boost = Math.max(boost, 1.6 * intensity);
+    setTimeout(() => { boost = 0; }, 2200);
+    const voices = Math.floor(13 * intensity);
     for (let i = 0; i < voices; i++) {
-      laughBurst(t0 + Math.random() * 0.6, (Math.random() - 0.5) * 1.8, 2 + Math.floor(Math.random() * 3));
+      laughBurst(t0 + Math.random() * 0.7, (Math.random() - 0.5) * 1.9, 3 + Math.floor(Math.random() * 4));
     }
-    // une voix isolée qui pouffe un peu après coup
-    if (Math.random() < 0.5) laughBurst(t0 + 1.1 + Math.random() * 0.5, (Math.random() - 0.5) * 1.6, 2);
+    // une deuxième vague qui repart, la salle qui relance le rire
+    if (Math.random() < 0.7) {
+      const voices2 = Math.floor(6 * intensity);
+      for (let i = 0; i < voices2; i++) {
+        laughBurst(t0 + 0.9 + Math.random() * 0.6, (Math.random() - 0.5) * 1.8, 2 + Math.floor(Math.random() * 3));
+      }
+    }
+    // des voix qui gueulent par-dessus le rire
+    crowdInterjection(0.5);
+    if (Math.random() < 0.6) crowdInterjection(0.4);
   };
 
   // Sifflement d'ovation (deux doigts) : ton net avec vibrato, monte
@@ -473,7 +522,7 @@ function createAudioEngine() {
     clearInterval(events);
     ctx.close().catch(() => {});
   };
-  return { murmurSwell, ovation, laughter, setHeat, dispose };
+  return { murmurSwell, ovation, laughter, crowdReact, setHeat, dispose };
 }
 
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -514,6 +563,7 @@ export default function Tribune({ onExit }) {
   const [convictions, setConvictions] = useState({});
   const [gameError, setGameError] = useState(null);
   const [pendingQuestion, setPendingQuestion] = useState(null);
+  const [duel, setDuel] = useState([]); // jusqu'à 2 : [{ memberId, fr, side, laugh }]
   const [needMistralKey, setNeedMistralKey] = useState(false);
   const [mistralKeyInput, setMistralKeyInput] = useState('');
 
@@ -743,17 +793,75 @@ export default function Tribune({ onExit }) {
     };
   }, []);
 
-  // Des voix fusent de la salle pendant toute la séance
+  // La salle surgit, imprévisible : un témoin qui gueule seul, ou deux
+  // qui s'affrontent en duel — face à face, chacun de son côté de
+  // l'écran, en même temps — jamais à intervalle régulier.
   useEffect(() => {
     if (phase === 'door') return;
-    const id = setInterval(() => {
-      try {
-        if (speechSynthesis.speaking) return;
-        if (Math.random() > 0.28 + heatRef.current * 0.45) return;
-        crowdInterjection(0.22 + heatRef.current * 0.2);
-      } catch { /* ignore */ }
-    }, 4200);
-    return () => clearInterval(id);
+    let timer = null;
+    let stopped = false;
+
+    const flashMember = (memberId, side, delayMs) => {
+      const entry = ERUPTIONS[memberId][Math.floor(Math.random() * ERUPTIONS[memberId].length)];
+      const [vo, fr, kind] = entry;
+      const laugh = kind === 'laugh';
+      setTimeout(() => {
+        if (stopped) return;
+        setDuel(d => [...d.filter(x => x.side !== side), { memberId, fr, side, laugh }]);
+        if (laugh) {
+          audioRef.current?.laughter(0.65);
+        } else {
+          try {
+            const u = new SpeechSynthesisUtterance(vo);
+            u.lang = SPEECH_LANGS[memberId] || 'fr-FR';
+            const v = pickVoice(u.lang, SPEECH_GENDER[memberId] || 'female');
+            if (v) u.voice = v;
+            u.volume = 1;
+            u.rate = 1.12 + Math.random() * 0.15;
+            u.pitch = (SPEECH_PITCH[memberId] ?? 1) * 1.12;
+            speechSynthesis.speak(u);
+          } catch { /* ignore */ }
+        }
+        // la salle prend parti derrière le témoin : encouragements ou huées
+        setTimeout(() => {
+          audioRef.current?.crowdReact(Math.random() < 0.55, side === 'l' ? -0.8 : 0.8);
+        }, 260 + Math.random() * 200);
+        setTimeout(() => setDuel(d => d.filter(x => x.side !== side || x.memberId !== memberId)), 2000);
+      }, delayMs);
+    };
+
+    const schedule = () => {
+      const nextIn = 900 + Math.random() * 1800 - heatRef.current * 700;
+      timer = setTimeout(() => {
+        if (stopped) return;
+        const ids = MEMBERS.map(m => m.id);
+        const a = ids[Math.floor(Math.random() * ids.length)];
+        const duelMode = Math.random() < 0.6;
+
+        if (duelMode) {
+          // duel face à face : deux témoins, chacun son côté, qui
+          // s'enchaînent comme une vraie engueulade
+          const b = ids.filter(id => id !== a)[Math.floor(Math.random() * (ids.length - 1))];
+          const aSide = Math.random() < 0.5 ? 'l' : 'r';
+          const bSide = aSide === 'l' ? 'r' : 'l';
+          flashMember(a, aSide, 0);
+          audioRef.current?.murmurSwell();
+          flashMember(b, bSide, 550 + Math.random() * 200);
+          hallRef.current?.murmur();
+          // une troisième relance parfois, sur la place déjà libérée de A
+          if (Math.random() < 0.4) {
+            const c = ids.filter(id => id !== a && id !== b)[Math.floor(Math.random() * (ids.length - 2))];
+            flashMember(c, aSide, 2100 + Math.random() * 200);
+          }
+        } else {
+          flashMember(a, Math.random() < 0.5 ? 'l' : 'r', 0);
+          audioRef.current?.murmurSwell();
+        }
+        schedule();
+      }, Math.max(600, nextIn));
+    };
+    schedule();
+    return () => { stopped = true; clearTimeout(timer); };
   }, [phase]);
 
   const speaker = current?.member ? memberById(current.member) : null;
@@ -774,6 +882,21 @@ export default function Tribune({ onExit }) {
           <CartoonWitness memberId={speaker.id} speaking={!current.dida} />
         </div>
       )}
+
+      {/* Duel imprévu : deux témoins qui surgissent face à face,
+        n'importe quand, indépendamment de l'écran affiché */}
+      {duel.map(d => {
+        const m = memberById(d.memberId);
+        return (
+          <div key={d.side} className={`tr-duel tr-duel-${d.side}`}>
+            <div className="tr-duel-fig">
+              <CartoonWitness memberId={d.memberId} speaking pose={d.laugh ? 2 : 0} />
+            </div>
+            <div className="tr-duel-name">{m?.name}</div>
+            <div className="tr-duel-line">{d.fr}</div>
+          </div>
+        );
+      })}
 
       <div className="tr-grain" />
       <div className="tr-bar tr-bar-top" />
