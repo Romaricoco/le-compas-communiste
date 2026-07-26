@@ -21,9 +21,11 @@ const PALETTE = {
   john:  { skin: '#6b4a33', hair: '#171310', coat: '#e6e2d8', accent: '#a3151b', style: 'short',   outfit: 'tunic' },
   // costume cravate rouge, carré au carré — intellectuelle
   greta: { skin: '#d9c2a4', hair: '#3a2a1c', coat: '#181614', accent: '#a3151b', style: 'bob',     outfit: 'suit' },
+  // béret, chemise ample de syndicaliste — président de séance français
+  romaric: { skin: '#d3ab86', hair: '#2c2118', coat: '#dfd9cc', accent: '#a3151b', style: 'beret', outfit: 'tunic' },
 };
 
-const SEED = { olga: 0, diego: 1, wei: 2, amara: 3, john: 4, greta: 5 };
+const SEED = { olga: 0, diego: 1, wei: 2, amara: 3, john: 4, greta: 5, romaric: 6 };
 
 /* Gestuelles d'orateur — le bras droit pivote depuis l'épaule ;
    à -150° il passe au-dessus de la tête, poing serré. */
@@ -50,6 +52,15 @@ function Hair({ p }) {
     case 'slick':
       /* cheveux tirés en arrière, stricts */
       return <path d="M64,110 C60,66 78,42 100,42 C122,42 140,66 136,110 C138,130 132,150 128,158 C132,130 126,96 100,94 C74,96 68,130 72,158 C68,150 62,130 64,110 Z" fill={hair} />;
+    case 'beret':
+      /* béret français, légèrement incliné, avec sa petite queue */
+      return (
+        <>
+          <path d="M62,96 C58,64 76,44 100,44 C124,44 142,64 138,96 C136,74 122,60 100,60 C78,60 64,74 62,96 Z" fill={hair} />
+          <ellipse cx="100" cy="58" rx="46" ry="16" fill="#26211c" />
+          <circle cx="128" cy="52" r="4" fill="#26211c" />
+        </>
+      );
     case 'bob':
       return <path d="M63,120 C57,68 78,44 100,44 C122,44 143,68 137,120 C137,134 132,84 100,82 C68,84 63,134 63,120 Z" fill={hair} />;
     case 'short':
@@ -199,9 +210,9 @@ export default function CartoonWitness({ memberId, speaking = false, pose = 0 })
 
         {/* tête */}
         <g className="cw-head" style={{ transformBox: 'view-box', transformOrigin: '100px 180px' }}>
-          {p.style !== 'veil' && p.style !== 'bob' && <Hair p={p} />}
+          {p.style !== 'veil' && p.style !== 'bob' && p.style !== 'beret' && <Hair p={p} />}
           <path d={HEAD_PATH} fill={p.skin} />
-          {p.style === 'bob' && <Hair p={p} />}
+          {(p.style === 'bob' || p.style === 'beret') && <Hair p={p} />}
 
           {/* ombre directionnelle : un côté du visage dans la pénombre */}
           <path d="M100,58 C124,60 136,88 133,118 C133,148 126,172 100,186 Z" fill="#000" opacity="0.14" stroke="none" />

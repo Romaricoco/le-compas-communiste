@@ -21,6 +21,7 @@ const MEMBERS = [
   { id: 'amara', name: 'Amara', lang: 'العربية',   role: 'internationaliste',     photo: '/portraits/amara.jpg', remote: photoUrl('4cA1jDfaVJU'), voice: 'EXAVITQu4vr4xnSDxMaL', side: 'r' },
   { id: 'john',  name: 'John',  lang: 'English',  role: 'ouvrier sceptique',     photo: '/portraits/john.jpg',  remote: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX', side: 'l' },
   { id: 'greta', name: 'Greta', lang: 'Deutsch',  role: 'intellectuelle',        photo: '/portraits/greta.jpg', remote: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O', side: 'r' },
+  { id: 'romaric', name: 'Romaric', lang: 'Français', role: 'président de séance', photo: '/portraits/romaric.jpg', remote: '', voice: 'ErXwobaYiN019PkySvjV', side: 'l' },
 ];
 const memberById = id => MEMBERS.find(m => m.id === id);
 
@@ -28,6 +29,7 @@ const START_CONVICTION = 40;
 const CONVINCED_AT = 60;
 const HOSTILE_AT = 25;
 const ROUNDS = 5;
+const WIN_THRESHOLD = Math.ceil(MEMBERS.length * 2 / 3); // ~2/3 de l'assemblée
 
 /* ── TTS : clé locale (navigateur) sinon proxy serveur ──── */
 const getLocalKey = () => {
@@ -72,9 +74,9 @@ async function fetchVoice(text, voiceId) {
 
 /* ── Voix de secours : synthèse du navigateur dans la langue
       du témoin, quand ElevenLabs n'est pas disponible ──────── */
-const SPEECH_LANGS = { olga: 'ru-RU', diego: 'es-ES', wei: 'zh-CN', amara: 'ar-SA', john: 'en-GB', greta: 'de-DE' };
-const SPEECH_GENDER = { olga: 'female', diego: 'male', wei: 'female', amara: 'female', john: 'male', greta: 'female' };
-const SPEECH_PITCH = { olga: 0.9, diego: 1.02, wei: 1.04, amara: 0.98, john: 0.88, greta: 0.97 };
+const SPEECH_LANGS = { olga: 'ru-RU', diego: 'es-ES', wei: 'zh-CN', amara: 'ar-SA', john: 'en-GB', greta: 'de-DE', romaric: 'fr-FR' };
+const SPEECH_GENDER = { olga: 'female', diego: 'male', wei: 'female', amara: 'female', john: 'male', greta: 'female', romaric: 'male' };
+const SPEECH_PITCH = { olga: 0.9, diego: 1.02, wei: 1.04, amara: 0.98, john: 0.88, greta: 0.97, romaric: 0.95 };
 
 // Si aucune voix n'est installée pour la langue exacte, on tente des
 // variantes proches avant de renoncer.
@@ -339,8 +341,6 @@ function createAudioEngine() {
     if (pick < 0.3) {           // une toux au fond de la salle
       burst({ f0: 360, type: 'lowpass', dur: 0.13, gain: 0.12, p });
       setTimeout(() => burst({ f0: 320, type: 'lowpass', dur: 0.11, gain: 0.09, p }), 200);
-    } else if (pick < 0.55) {   // une chaise qui racle
-      burst({ f0: 2000 + Math.random() * 600, q: 9, dur: 0.1, gain: 0.05, sweep: -350, p });
     } else if (pick < 0.8) {    // le brouhaha qui enfle brièvement
       boost = Math.max(boost, 0.7);
       setTimeout(() => { boost = 0; }, 1800);
@@ -708,6 +708,20 @@ export default function Tribune({ onExit }) {
       ...data.lines.map(l => ({ by: l.member, fr: l.fr })),
     ];
     setPendingQuestion(data.question || null);
+    if (data.question) {
+      // la question est adressée à voix haute, directement au joueur,
+      // par Romaric — plus d'interactivité qu'un simple texte affiché
+      try {
+        const u = new SpeechSynthesisUtterance(data.question);
+        u.lang = 'fr-FR';
+        const v = pickVoice('fr-FR', 'male');
+        if (v) u.voice = v;
+        u.rate = 0.95;
+        u.pitch = SPEECH_PITCH.romaric;
+        u.volume = 1;
+        setTimeout(() => speechSynthesis.speak(u), 400);
+      } catch { /* ignore */ }
+    }
 
     setCurrent(null);
     setPhase('state');
@@ -716,7 +730,7 @@ export default function Tribune({ onExit }) {
 
     if (currentRound >= ROUNDS) {
       const convinced = MEMBERS.filter(m => next[m.id] >= CONVINCED_AT).length;
-      if (convinced >= 4) {
+      if (convinced >= WIN_THRESHOLD) {
         audioRef.current?.ovation(1);
         hallRef.current?.ovation();
         hallRef.current?.setIntensity(1);
@@ -792,78 +806,9 @@ export default function Tribune({ onExit }) {
     };
   }, []);
 
-  // La salle surgit, imprévisible : un témoin qui gueule seul, ou deux
-  // qui s'affrontent en duel — face à face, chacun de son côté de
-  // l'écran, en même temps — jamais à intervalle régulier.
-  useEffect(() => {
-    // Pas d'irruption avant qu'un vrai débat existe : ça n'a aucun sens
-    // que la salle s'engueule avant même que la cause soit posée.
-    if (phase === 'door' || phase === 'cause') return;
-    let timer = null;
-    let stopped = false;
-
-    // favorable=true → la salle rit/acclame ce témoin ; false → elle le hue.
-    // La cohérence vient d'ici : c'est décidé UNE fois par duel, pas
-    // tiré au sort séparément pour chaque témoin et chaque son.
-    const flashMember = (memberId, side, delayMs, favorable, forceLaugh) => {
-      const fr = ERUPTIONS_FR[Math.floor(Math.random() * ERUPTIONS_FR.length)];
-      const laugh = forceLaugh ?? (favorable && Math.random() < 0.45);
-      setTimeout(() => {
-        if (stopped) return;
-        setDuel(d => [...d.filter(x => x.side !== side), { memberId, fr, side, laugh }]);
-        // le témoin lance sa réplique (son brut, pas de phrase prétendue)
-        audioRef.current?.crowdReact(true, side === 'l' ? -0.8 : 0.8);
-        // la salle réagit ensuite, cohérente avec le sort de CE témoin :
-        // rire s'il fait rire, acclamation s'il a le dessus, huée sinon
-        setTimeout(() => {
-          if (laugh) audioRef.current?.laughter(0.65);
-          else audioRef.current?.crowdReact(favorable, side === 'l' ? -0.8 : 0.8);
-        }, 340 + Math.random() * 180);
-        setTimeout(() => setDuel(d => d.filter(x => x.side !== side || x.memberId !== memberId)), 2000);
-      }, delayMs);
-    };
-
-    const schedule = () => {
-      const nextIn = 900 + Math.random() * 1800 - heatRef.current * 700;
-      timer = setTimeout(() => {
-        if (stopped) return;
-        // rien à commenter tant que le premier échange n'a pas eu lieu
-        if (transcriptRef.current.length === 0) { schedule(); return; }
-        const ids = MEMBERS.map(m => m.id);
-        const a = ids[Math.floor(Math.random() * ids.length)];
-        const duelMode = Math.random() < 0.75; // plus de duels, plus de monde à l'écran
-
-        if (duelMode) {
-          // duel face à face : A est coupé par B, qui a le dessus —
-          // la salle hue A et suit B, un vrai arc plutôt que deux
-          // réactions indépendantes.
-          const b = ids.filter(id => id !== a)[Math.floor(Math.random() * (ids.length - 1))];
-          const aSide = Math.random() < 0.5 ? 'l' : 'r';
-          const bSide = aSide === 'l' ? 'r' : 'l';
-          flashMember(a, aSide, 0, false);
-          audioRef.current?.murmurSwell();
-          flashMember(b, bSide, 550 + Math.random() * 200, true);
-          hallRef.current?.murmur();
-          // une troisième relance parfois : quelqu'un recoupe B à son tour
-          if (Math.random() < 0.45) {
-            const c = ids.filter(id => id !== a && id !== b)[Math.floor(Math.random() * (ids.length - 2))];
-            flashMember(c, bSide, 2150 + Math.random() * 200, true);
-          }
-        } else {
-          // seul face à la salle : pile ou face franc, pas de camp adverse
-          flashMember(a, Math.random() < 0.5 ? 'l' : 'r', 0, Math.random() < 0.5);
-          audioRef.current?.murmurSwell();
-        }
-        schedule();
-      }, Math.max(600, nextIn));
-    };
-    schedule();
-    return () => { stopped = true; clearTimeout(timer); };
-  }, [phase]);
-
   const speaker = current?.member ? memberById(current.member) : null;
   const convincedCount = MEMBERS.filter(m => (convictions[m.id] ?? 0) >= CONVINCED_AT).length;
-  const won = convincedCount >= 4;
+  const won = convincedCount >= WIN_THRESHOLD;
 
   const stance = v => v >= CONVINCED_AT ? 'convaincu·e' : v <= HOSTILE_AT ? 'hostile' : 'sceptique';
 
@@ -915,7 +860,7 @@ export default function Tribune({ onExit }) {
           <div className="tr-door-title">LA TRIBUNE</div>
           <div className="tr-door-sub">CINQ TOURS. CONVAINCRE — OU REDESCENDRE.</div>
           <button className="tr-door-btn" onClick={enter}>Monter à la tribune</button>
-          <div className="tr-door-note">6 témoins · voix réelles · le jeu</div>
+          <div className="tr-door-note">7 témoins · voix réelles · le jeu</div>
         </div>
       )}
 
@@ -1029,7 +974,7 @@ export default function Tribune({ onExit }) {
       {phase === 'verdict' && (
         <div className="tr-endcard">
           <div className="tr-end-title">{won ? 'L’ASSEMBLÉE SE LÈVE' : convincedCount === 3 ? 'LA SALLE EST PARTAGÉE' : 'REDESCENDS, CAMARADE'}</div>
-          <div className="tr-end-sub">{convincedCount} témoin{convincedCount > 1 ? 's' : ''} sur 6 convaincu{convincedCount > 1 ? 's' : ''} — « {cause} »</div>
+          <div className="tr-end-sub">{convincedCount} témoin{convincedCount > 1 ? 's' : ''} sur {MEMBERS.length} convaincu{convincedCount > 1 ? 's' : ''} — « {cause} »</div>
           <div className="tr-credits">
             {MEMBERS.map(m => (
               <div key={m.id} className="tr-credit-line">
