@@ -159,6 +159,14 @@
   font-size: clamp(15px, 2vw, 21px);
   letter-spacing: .08em;
 }
+/* la question directe d'un témoin : plus nette, plus chaude, pour
+   qu'elle se distingue d'une simple didascalie de salle */
+.tr-fr.tr-question {
+  font-style: normal;
+  font-weight: 500;
+  color: #f0dcc0;
+  letter-spacing: .02em;
+}
 @keyframes tr-subin {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }

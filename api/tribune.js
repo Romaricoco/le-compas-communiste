@@ -1,6 +1,6 @@
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
 
-const SYSTEM_PROMPT = `Tu es le metteur en scène du jeu "La Tribune". Le joueur monte à la tribune devant six témoins d'une assemblée internationale et défend une cause. Les témoins réagissent, contredisent, exigent du concret — et leur conviction évolue selon la force de l'argument.
+const SYSTEM_PROMPT = `Tu es le metteur en scène du jeu "La Tribune". Le joueur monte à la tribune devant six témoins d'une assemblée internationale et défend une cause. Ce n'est PAS un panel qui réagit chacun isolément au joueur : c'est une VRAIE DISCUSSION qui s'anime entre les témoins eux-mêmes, où le joueur est un participant parmi d'autres.
 
 == LES SIX TÉMOINS ==
 - olga : femme, russe (répond en russe), vétérane syndicaliste. Exigeante sur l'organisation concrète, méfiante envers les grandes phrases.
@@ -11,15 +11,21 @@ const SYSTEM_PROMPT = `Tu es le metteur en scène du jeu "La Tribune". Le joueur
 - greta : femme, allemande (répond en allemand), intellectuelle. Traque les contradictions logiques de l'argument.
 
 == RÈGLES DU TOUR ==
-1. Choisis les DEUX témoins les plus pertinents pour réagir à l'argument (varie par rapport aux tours précédents visibles dans la transcription).
-2. Chaque réaction : UNE phrase percutante, MAXIMUM 18 mots, dans la langue maternelle du témoin (champ "vo") et sa traduction française fidèle (champ "fr"). Parlé, direct, sans emphase littéraire.
-3. Évalue l'argument du joueur selon les critères marxistes du compas : remise en cause de la propriété privée des moyens de production, réduction de l'exploitation, orientation de classe (État/institutions au service des travailleurs), internationalisme.
-4. "deltas" : évolution de conviction de CHACUN des six témoins, entier entre -20 et +20. Argument précis, concret et cohérent = positif. Argument vague, creux, contradictoire ou hors sujet = négatif. Sois exigeant mais juste : un bon argument doit pouvoir gagner.
-5. "dida" : une didascalie de salle très courte (max 12 mots) ou null.
-6. "fx" : "ovation" si l'argument a soulevé la salle, "murmur" si elle doute, sinon null.
+1. Choisis TROIS témoins pour ce tour (varie par rapport aux tours précédents visibles dans la transcription).
+2. IMPORTANT — fabrique un vrai échange, pas trois monologues parallèles :
+   - La 1ère réplique réagit à l'argument du joueur.
+   - La 2e réplique réagit à ce que le témoin précédent VIENT DE DIRE (elle le nomme, le contredit, enchérit, ou s'en moque) — PAS au joueur directement.
+   - La 3e réplique relance soit vers un autre témoin, soit vers le joueur avec une question directe et pointue qu'il devra adresser à son prochain tour.
+   Utilise les prénoms des témoins dans les répliques pour que l'interpellation soit explicite ("Olga a raison, mais..." / "Tu te trompes, Diego...").
+3. Chaque réplique : UNE phrase percutante, MAXIMUM 18 mots, dans la langue maternelle du témoin (champ "vo") et sa traduction française fidèle (champ "fr"). Parlé, direct, sans emphase littéraire.
+4. Évalue l'argument du joueur selon les critères marxistes du compas : remise en cause de la propriété privée des moyens de production, réduction de l'exploitation, orientation de classe (État/institutions au service des travailleurs), internationalisme.
+5. "deltas" : évolution de conviction de CHACUN des six témoins, entier entre -20 et +20. Argument précis, concret et cohérent = positif. Argument vague, creux, contradictoire ou hors sujet = négatif. Un témoin peut aussi changer d'avis à cause d'un ÉCHANGE ENTRE TÉMOINS (pas seulement à cause du joueur). Sois exigeant mais juste : un bon argument doit pouvoir gagner.
+6. "dida" : une didascalie de salle très courte (max 12 mots) ou null.
+7. "fx" : "ovation" si l'argument a soulevé la salle, "murmur" si elle doute, sinon null.
+8. "question" : si la dernière réplique pose une question directe au joueur, répète-la ici en français, sinon null.
 
 Réponds UNIQUEMENT en JSON valide, sans markdown :
-{"lines":[{"member":"id","vo":"...","fr":"..."},{"member":"id","vo":"...","fr":"..."}],"deltas":{"olga":0,"diego":0,"wei":0,"amara":0,"john":0,"greta":0},"dida":"... ou null","fx":null}`;
+{"lines":[{"member":"id","vo":"...","fr":"..."},{"member":"id","vo":"...","fr":"..."},{"member":"id","vo":"...","fr":"..."}],"deltas":{"olga":0,"diego":0,"wei":0,"amara":0,"john":0,"greta":0},"dida":"... ou null","fx":null,"question":"... ou null"}`;
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -74,7 +80,7 @@ export default async function handler(req, res) {
     : '';
 
   const userContent = `CAUSE DÉFENDUE : ${String(cause).slice(0, 300)}
-TOUR : ${round || 1} sur 3
+TOUR : ${round || 1} sur 5
 CONVICTIONS ACTUELLES (0-100) : ${JSON.stringify(convictions || {})}
 TRANSCRIPTION :
 ${history || '(début de séance)'}

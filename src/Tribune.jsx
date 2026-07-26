@@ -27,7 +27,7 @@ const memberById = id => MEMBERS.find(m => m.id === id);
 const START_CONVICTION = 40;
 const CONVINCED_AT = 60;
 const HOSTILE_AT = 25;
-const ROUNDS = 3;
+const ROUNDS = 5;
 
 /* ── TTS : clé locale (navigateur) sinon proxy serveur ──── */
 const getLocalKey = () => {
@@ -456,6 +456,7 @@ export default function Tribune({ onExit }) {
   const [current, setCurrent] = useState(null);   // { member?, vo?, fr } | { dida }
   const [convictions, setConvictions] = useState({});
   const [gameError, setGameError] = useState(null);
+  const [pendingQuestion, setPendingQuestion] = useState(null);
   const [needMistralKey, setNeedMistralKey] = useState(false);
   const [mistralKeyInput, setMistralKeyInput] = useState('');
 
@@ -554,7 +555,7 @@ export default function Tribune({ onExit }) {
       return;
     }
 
-    // Synthèse des voix en parallèle (2 répliques max)
+    // Synthèse des voix en parallèle (3 répliques max, un vrai échange)
     const urls = await Promise.all(
       data.lines.map(l => fetchVoice(l.vo, memberById(l.member)?.voice))
     );
@@ -599,6 +600,7 @@ export default function Tribune({ onExit }) {
       { by: 'joueur', fr: argumentText },
       ...data.lines.map(l => ({ by: l.member, fr: l.fr })),
     ];
+    setPendingQuestion(data.question || null);
 
     setCurrent(null);
     setPhase('state');
@@ -632,6 +634,7 @@ export default function Tribune({ onExit }) {
     convictionsRef.current = init;
     setConvictions(init);
     transcriptRef.current = [];
+    setPendingQuestion(null);
     runRound(c, 1, c);
   }, [causeInput, runRound]);
 
@@ -650,6 +653,7 @@ export default function Tribune({ onExit }) {
     setArgInput('');
     setCurrent(null);
     setGameError(null);
+    setPendingQuestion(null);
     transcriptRef.current = [];
     setPhase('cause');
   }, []);
@@ -730,7 +734,7 @@ export default function Tribune({ onExit }) {
       {phase === 'door' && (
         <div className="tr-door">
           <div className="tr-door-title">LA TRIBUNE</div>
-          <div className="tr-door-sub">TROIS TOURS. CONVAINCRE — OU REDESCENDRE.</div>
+          <div className="tr-door-sub">CINQ TOURS. CONVAINCRE — OU REDESCENDRE.</div>
           <button className="tr-door-btn" onClick={enter}>Monter à la tribune</button>
           <div className="tr-door-note">6 témoins · voix réelles · le jeu</div>
         </div>
@@ -789,7 +793,9 @@ export default function Tribune({ onExit }) {
               ))}
             </div>
           )}
-          <div className="tr-fr dida">L'assemblée attend ta réponse.</div>
+          <div className={'tr-fr dida' + (pendingQuestion ? ' tr-question' : '')}>
+            {pendingQuestion || "L'assemblée attend ta réponse."}
+          </div>
           <textarea
             className="tr-speechline"
             rows={2}
