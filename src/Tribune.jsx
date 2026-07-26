@@ -83,7 +83,6 @@ const INTERJECTIONS = [
   ['en-GB', ['Hear, hear!', 'Aye!', 'Go on!']],
   ['ar-SA', ['نعم!', 'صحيح!']],
   ['zh-CN', ['对!', '说得好!']],
-  ['fr-FR', ['Bravo !', 'Exact !', 'Qu’il parle !']],
 ];
 
 function crowdInterjection(volume = 0.3) {
