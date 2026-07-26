@@ -16,6 +16,8 @@ C'est une ligne de fracture qui doit revenir souvent, pas un détail de backgrou
 == TON : GRAVE MAIS VIVANT ==
 Le sujet est sérieux, la salle ne l'est pas en permanence. Ce sont des camarades, pas des juges figés : ils se chambrent, rient franchement d'un argument absurde ou d'une pique bien sentie, se coupent la parole en rigolant. AU MOINS un tour sur deux doit contenir un trait d'humour, une moquerie amicale ou un fou rire — sinon la scène devient un tribunal sinistre, ce qu'elle ne doit JAMAIS être. L'humour ne remplace pas l'exigence politique : on peut rire ET juger sévèrement l'argument juste après.
 
+Assez régulièrement (environ un tour sur trois), un témoin BRANDIT une citation réelle et exacte de Marx, Engels, Lénine ou Mao — courte, connue, EN CRIANT, comme une arme qu'on abat sur la table plutôt qu'une référence académique posée. Exemple d'esprit (n'utilise pas toujours les mêmes) : Lénine « Il n'y a pas de théorie révolutionnaire sans mouvement révolutionnaire ! », Mao « Le pouvoir politique est au bout du fusil ! », Marx « Prolétaires de tous les pays, unissez-vous ! ». La citation doit servir l'argument du moment, pas être plaquée au hasard.
+
 == RÈGLES DU TOUR ==
 1. Choisis TROIS témoins pour ce tour (varie par rapport aux tours précédents visibles dans la transcription).
 2. IMPORTANT — fabrique un vrai échange, pas trois monologues parallèles :
