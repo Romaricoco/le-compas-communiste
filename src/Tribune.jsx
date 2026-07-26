@@ -157,14 +157,13 @@ const INTERJECTIONS = [
 /* Irruptions nommées : un témoin précis surgit à l'écran, hors du
    tour normal — c'est ce qui casse la routine et rend la salle
    imprévisible. Phrases courtes, dans la langue du témoin. */
-const ERUPTIONS = {
-  olga:  [['Хватит!', 'Assez !'], ['Ложь!', 'Mensonge !'], ['А доказательства?!', 'Et les preuves ?!'], ['Ха! Смешно.', 'Ha ! C’est risible.', 'laugh']],
-  diego: [['¡Basta ya!', 'Ça suffit !'], ['¡Eso es mentira!', 'C’est un mensonge !'], ['¡Al grano!', 'Va au but !'], ['¡Já! ¿En serio?', 'Ha ! Sérieux ?', 'laugh']],
-  wei:   [['够了!', 'Assez !'], ['数据呢?!', 'Et les chiffres ?!'], ['胡说!', 'N’importe quoi !'], ['哈!可笑。', 'Ha ! C’est ridicule.', 'laugh']],
-  amara: [['كفى!', 'Assez !'], ['هذا كذب!', 'C’est un mensonge !'], ['أين الدليل؟!', 'Où est la preuve ?!'], ['هه! تمزح؟', 'Ha ! Tu plaisantes ?', 'laugh']],
-  john:  [['Rubbish!', 'N’importe quoi !'], ['Prove it!', 'Prouve-le !'], ['Get on with it!', 'Viens-en au fait !'], ['Ha! You are joking.', 'Ha ! Tu plaisantes.', 'laugh']],
-  greta: [['Widerspruch!', 'Contradiction !'], ['Das stimmt nicht!', 'C’est faux !'], ['Beweise!', 'Des preuves !'], ['Ha! Lächerlich.', 'Ha ! C’est ridicule.', 'laugh']],
-};
+/* Réactions courtes en français, génériques — pas de fausse citation
+   qui prétend commenter un argument précis, juste une réaction brute :
+   colère, rejet, ou rire. */
+const ERUPTIONS_FR = [
+  'Assez !', 'N’importe quoi !', 'Ça suffit !', 'Encore ?!', 'Pff...',
+  'Mensonge !', 'Ridicule !', 'Prouve-le !', 'Ha !', 'Silence !',
+];
 
 function crowdInterjection(volume = 0.3) {
   try {
@@ -265,7 +264,7 @@ function createAudioEngine() {
   // Souffle grave de grand hall — discret
   const room = noiseSrc();
   const roomF = ctx.createBiquadFilter(); roomF.type = 'lowpass'; roomF.frequency.value = 150;
-  const roomG = ctx.createGain(); roomG.gain.value = 0.16;
+  const roomG = ctx.createGain(); roomG.gain.value = 0;
   room.connect(roomF); roomF.connect(roomG); pan(roomG, 0); room.start();
 
   let heat = 0.25;  // 0..1 : la salle est d'autant plus bruyante qu'elle est chaude
@@ -316,8 +315,8 @@ function createAudioEngine() {
     };
     mumble();
   };
-  for (let i = 0; i < 4; i++) makeWallaVoice(true, (Math.random() - 0.5) * 0.5);
-  for (let i = 0; i < 8; i++) makeWallaVoice(false, (Math.random() - 0.5) * 1.7);
+  // Bruit de fond coupé : plus de souffle de salle ni de murmure permanent.
+  // Les réactions ponctuelles (ovation, rire, huées, duels) restent seules.
 
   // Bruits de salle aléatoires : toux, chaises, exclamations lointaines
   const burst = ({ f0, type = 'bandpass', q = 1, dur = 0.12, gain = 0.04, sweep = 0, p = 0 }) => {
@@ -797,35 +796,29 @@ export default function Tribune({ onExit }) {
   // qui s'affrontent en duel — face à face, chacun de son côté de
   // l'écran, en même temps — jamais à intervalle régulier.
   useEffect(() => {
-    if (phase === 'door') return;
+    // Pas d'irruption avant qu'un vrai débat existe : ça n'a aucun sens
+    // que la salle s'engueule avant même que la cause soit posée.
+    if (phase === 'door' || phase === 'cause') return;
     let timer = null;
     let stopped = false;
 
-    const flashMember = (memberId, side, delayMs) => {
-      const entry = ERUPTIONS[memberId][Math.floor(Math.random() * ERUPTIONS[memberId].length)];
-      const [vo, fr, kind] = entry;
-      const laugh = kind === 'laugh';
+    // favorable=true → la salle rit/acclame ce témoin ; false → elle le hue.
+    // La cohérence vient d'ici : c'est décidé UNE fois par duel, pas
+    // tiré au sort séparément pour chaque témoin et chaque son.
+    const flashMember = (memberId, side, delayMs, favorable, forceLaugh) => {
+      const fr = ERUPTIONS_FR[Math.floor(Math.random() * ERUPTIONS_FR.length)];
+      const laugh = forceLaugh ?? (favorable && Math.random() < 0.45);
       setTimeout(() => {
         if (stopped) return;
         setDuel(d => [...d.filter(x => x.side !== side), { memberId, fr, side, laugh }]);
-        if (laugh) {
-          audioRef.current?.laughter(0.65);
-        } else {
-          try {
-            const u = new SpeechSynthesisUtterance(vo);
-            u.lang = SPEECH_LANGS[memberId] || 'fr-FR';
-            const v = pickVoice(u.lang, SPEECH_GENDER[memberId] || 'female');
-            if (v) u.voice = v;
-            u.volume = 1;
-            u.rate = 1.12 + Math.random() * 0.15;
-            u.pitch = (SPEECH_PITCH[memberId] ?? 1) * 1.12;
-            speechSynthesis.speak(u);
-          } catch { /* ignore */ }
-        }
-        // la salle prend parti derrière le témoin : encouragements ou huées
+        // le témoin lance sa réplique (son brut, pas de phrase prétendue)
+        audioRef.current?.crowdReact(true, side === 'l' ? -0.8 : 0.8);
+        // la salle réagit ensuite, cohérente avec le sort de CE témoin :
+        // rire s'il fait rire, acclamation s'il a le dessus, huée sinon
         setTimeout(() => {
-          audioRef.current?.crowdReact(Math.random() < 0.55, side === 'l' ? -0.8 : 0.8);
-        }, 260 + Math.random() * 200);
+          if (laugh) audioRef.current?.laughter(0.65);
+          else audioRef.current?.crowdReact(favorable, side === 'l' ? -0.8 : 0.8);
+        }, 340 + Math.random() * 180);
         setTimeout(() => setDuel(d => d.filter(x => x.side !== side || x.memberId !== memberId)), 2000);
       }, delayMs);
     };
@@ -834,27 +827,31 @@ export default function Tribune({ onExit }) {
       const nextIn = 900 + Math.random() * 1800 - heatRef.current * 700;
       timer = setTimeout(() => {
         if (stopped) return;
+        // rien à commenter tant que le premier échange n'a pas eu lieu
+        if (transcriptRef.current.length === 0) { schedule(); return; }
         const ids = MEMBERS.map(m => m.id);
         const a = ids[Math.floor(Math.random() * ids.length)];
-        const duelMode = Math.random() < 0.6;
+        const duelMode = Math.random() < 0.75; // plus de duels, plus de monde à l'écran
 
         if (duelMode) {
-          // duel face à face : deux témoins, chacun son côté, qui
-          // s'enchaînent comme une vraie engueulade
+          // duel face à face : A est coupé par B, qui a le dessus —
+          // la salle hue A et suit B, un vrai arc plutôt que deux
+          // réactions indépendantes.
           const b = ids.filter(id => id !== a)[Math.floor(Math.random() * (ids.length - 1))];
           const aSide = Math.random() < 0.5 ? 'l' : 'r';
           const bSide = aSide === 'l' ? 'r' : 'l';
-          flashMember(a, aSide, 0);
+          flashMember(a, aSide, 0, false);
           audioRef.current?.murmurSwell();
-          flashMember(b, bSide, 550 + Math.random() * 200);
+          flashMember(b, bSide, 550 + Math.random() * 200, true);
           hallRef.current?.murmur();
-          // une troisième relance parfois, sur la place déjà libérée de A
-          if (Math.random() < 0.4) {
+          // une troisième relance parfois : quelqu'un recoupe B à son tour
+          if (Math.random() < 0.45) {
             const c = ids.filter(id => id !== a && id !== b)[Math.floor(Math.random() * (ids.length - 2))];
-            flashMember(c, aSide, 2100 + Math.random() * 200);
+            flashMember(c, bSide, 2150 + Math.random() * 200, true);
           }
         } else {
-          flashMember(a, Math.random() < 0.5 ? 'l' : 'r', 0);
+          // seul face à la salle : pile ou face franc, pas de camp adverse
+          flashMember(a, Math.random() < 0.5 ? 'l' : 'r', 0, Math.random() < 0.5);
           audioRef.current?.murmurSwell();
         }
         schedule();

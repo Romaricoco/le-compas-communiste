@@ -11,32 +11,6 @@ import * as THREE from 'three';
 
 const isMobile = () => window.innerWidth < 720;
 
-/* Texture bras + poing levé */
-function makeFistTexture() {
-  const c = document.createElement('canvas');
-  c.width = 64; c.height = 128;
-  const g = c.getContext('2d');
-  g.clearRect(0, 0, 64, 128);
-  g.fillStyle = '#08080a';
-  // bras
-  g.save();
-  g.translate(32, 128);
-  g.rotate(-0.06);
-  g.fillRect(-7, -104, 14, 104);
-  g.restore();
-  // poing
-  g.beginPath();
-  g.ellipse(30, 22, 14, 16, -0.1, 0, Math.PI * 2);
-  g.fill();
-  g.strokeStyle = 'rgba(255,214,160,0.3)';
-  g.lineWidth = 2;
-  g.beginPath();
-  g.ellipse(30, 22, 14, 16, -0.1, -Math.PI * 0.9, -Math.PI * 0.1);
-  g.stroke();
-  const t = new THREE.CanvasTexture(c);
-  return t;
-}
-
 /* Halo radial (fond enfumé, lampes, flaque de lumière) */
 function makeGlowTexture(inner, outer) {
   const c = document.createElement('canvas');
@@ -110,17 +84,19 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
     backGlow.position.set(0, 6, -24);
     scene.add(backGlow);
 
-    // lueur rouge diffuse côté bannières
-    const redGlow = new THREE.Mesh(
-      keep(new THREE.PlaneGeometry(30, 20)),
-      keep(new THREE.MeshBasicMaterial({
-        map: keep(makeGlowTexture('rgba(110,16,18,0.5)', 'rgba(0,0,0,0)')),
-        transparent: true, depthWrite: false, opacity: 0.55, fog: false,
-        blending: THREE.AdditiveBlending,
-      }))
-    );
-    redGlow.position.set(-9, 7, -22);
-    scene.add(redGlow);
+    // lueur rouge : présente des deux côtés, mais contenue — pas un
+    // bain de rouge, juste la couleur du décor qui affleure.
+    const redGlowTex = keep(makeGlowTexture('rgba(120,18,20,0.55)', 'rgba(0,0,0,0)'));
+    const redGlowMat = keep(new THREE.MeshBasicMaterial({
+      map: redGlowTex, transparent: true, depthWrite: false, opacity: 0.5, fog: false,
+      blending: THREE.AdditiveBlending,
+    }));
+    const redGlowL = new THREE.Mesh(keep(new THREE.PlaneGeometry(26, 18)), redGlowMat);
+    redGlowL.position.set(-9.5, 6.5, -20);
+    scene.add(redGlowL);
+    const redGlowR = new THREE.Mesh(keep(new THREE.PlaneGeometry(26, 18)), redGlowMat);
+    redGlowR.position.set(9.5, 6.5, -20);
+    scene.add(redGlowR);
 
     /* ── Faisceaux des projecteurs ─────────────────────── */
     const cones = [];
@@ -176,165 +152,6 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       blending: THREE.AdditiveBlending, depthWrite: false, sizeAttenuation: true,
     })));
     scene.add(dust);
-
-    /* ── La foule : de vraies têtes (visages de l'atlas) ── */
-    const rows = 7;
-    const perRow = mobile ? 26 : 42;
-    const crowdCount = rows * perRow;
-    const crowdGeo = keep(new THREE.PlaneGeometry(1, 1.45)); // buste entier
-    const dummy = new THREE.Object3D();
-    const crowdBase = [];
-    const crowdMeshes = [];
-    const tint = new THREE.Color();
-
-    for (let r = 0; r < rows; r++) {
-      const z = -7.6 - r * 1.7;
-      const y = 0.8 + r * 0.55;
-      const spread = 8.6 + r * 1.1;
-      for (let k = 0; k < perRow; k++) {
-        const x = -spread + (k / (perRow - 1)) * spread * 2 + (Math.random() - 0.5) * 0.7;
-        crowdBase.push({
-          x, y: y + (Math.random() - 0.5) * 0.2, z: z + (Math.random() - 0.5) * 0.8,
-          s: 1.55 + Math.random() * 0.5 + r * 0.06,
-          phase: Math.random() * Math.PI * 2, amp: 0.5 + Math.random(),
-          row: r, mesh: null, local: 0,
-          // certains se lèvent quand la salle vit
-          stander: Math.random() < 0.14,
-          standStart: -99, holdDur: 0, nextStand: 4 + Math.random() * 18,
-        });
-      }
-    }
-
-    // masque tête + épaules (bords fondus) appliqué à chaque visage
-    const ATLAS_COLS = 5, ATLAS_ROWS = 4, CELL = 160;
-    const maskCanvas = document.createElement('canvas');
-    maskCanvas.width = CELL; maskCanvas.height = CELL;
-    {
-      // serré autour de la tête : le fond des photos disparaît
-      const mg = maskCanvas.getContext('2d');
-      let grad = mg.createRadialGradient(80, 62, 20, 80, 62, 46);
-      grad.addColorStop(0, 'rgba(255,255,255,1)');
-      grad.addColorStop(0.72, 'rgba(255,255,255,1)');
-      grad.addColorStop(1, 'rgba(255,255,255,0)');
-      mg.fillStyle = grad; mg.fillRect(0, 0, CELL, CELL);
-      grad = mg.createRadialGradient(80, 196, 30, 80, 196, 74);
-      grad.addColorStop(0, 'rgba(255,255,255,1)');
-      grad.addColorStop(0.6, 'rgba(255,255,255,0.9)');
-      grad.addColorStop(1, 'rgba(255,255,255,0)');
-      mg.fillStyle = grad; mg.fillRect(0, 0, CELL, CELL);
-    }
-
-    const atlasImg = new Image();
-    atlasImg.src = '/portraits/crowd.jpg';
-    atlasImg.onload = () => {
-      if (disposed) return;
-      const BASE = ATLAS_COLS * ATLAS_ROWS;
-      const COATS = ['#42362c', '#37373d', '#3d3125', '#2b3340', '#46262b', '#3a3a30', '#332a3a', '#3f3a2a'];
-      // Chaque visage source donne 3 personnes différentes (normal / miroir /
-      // miroir+manteau+écharpe différents) : 20 visages → 60 silhouettes
-      // distinctes, la foule ne montre plus les mêmes clones partout.
-      const VARIANTS = [];
-      for (let i = 0; i < BASE; i++) {
-        VARIANTS.push({ src: i, flip: false, coat: i % COATS.length, scarf: i % 4 === 0 });
-        VARIANTS.push({ src: i, flip: true, coat: (i + 3) % COATS.length, scarf: (i + 2) % 5 === 0 });
-        VARIANTS.push({ src: i, flip: false, coat: (i + 5) % COATS.length, scarf: (i + 1) % 3 === 0 });
-      }
-      const nTypes = VARIANTS.length;
-      const assign = crowdBase.map(() => Math.floor(Math.random() * nTypes));
-      const counts = new Array(nTypes).fill(0);
-      assign.forEach(t => counts[t]++);
-      const meshes = [];
-      for (let t = 0; t < nTypes; t++) {
-        const variant = VARIANTS[t];
-        // visage détouré (masque circulaire, le fond photo disparaît)
-        const face = document.createElement('canvas');
-        face.width = CELL; face.height = CELL;
-        const fg = face.getContext('2d');
-        fg.save();
-        if (variant.flip) { fg.translate(CELL, 0); fg.scale(-1, 1); }
-        fg.drawImage(atlasImg, (variant.src % ATLAS_COLS) * CELL, Math.floor(variant.src / ATLAS_COLS) * CELL, CELL, CELL, 0, 0, CELL, CELL);
-        fg.restore();
-        fg.globalCompositeOperation = 'destination-in';
-        fg.drawImage(maskCanvas, 0, 0);
-
-        // buste complet : manteau + col, la tête posée dessus — des
-        // personnes entières, pas des têtes flottantes
-        const c = document.createElement('canvas');
-        c.width = CELL; c.height = 232;
-        const g = c.getContext('2d');
-        g.fillStyle = COATS[variant.coat];
-        g.beginPath();
-        g.moveTo(8, 232);
-        g.bezierCurveTo(12, 152, 42, 120, 80, 118);
-        g.bezierCurveTo(118, 120, 148, 152, 152, 232);
-        g.closePath();
-        g.fill();
-        // épaules éclairées par le projecteur
-        g.fillStyle = 'rgba(255,214,150,0.10)';
-        g.beginPath();
-        g.moveTo(20, 232); g.bezierCurveTo(24, 158, 48, 126, 80, 124);
-        g.lineTo(80, 138); g.bezierCurveTo(56, 140, 36, 168, 32, 232);
-        g.closePath(); g.fill();
-        // certains portent l'écharpe rouge
-        if (variant.scarf) {
-          g.fillStyle = '#8c1216';
-          g.fillRect(52, 116, 56, 13);
-        }
-        g.drawImage(face, 0, -4);
-        const tex = keep(new THREE.CanvasTexture(c));
-        const mat = keep(new THREE.MeshBasicMaterial({
-          map: tex, transparent: true, alphaTest: 0.2, side: THREE.DoubleSide,
-        }));
-        const m = new THREE.InstancedMesh(crowdGeo, mat, Math.max(1, counts[t]));
-        m.count = counts[t];
-        meshes.push(m);
-        scene.add(m);
-      }
-      const fill = new Array(nTypes).fill(0);
-      crowdBase.forEach((b, i) => {
-        b.mesh = meshes[assign[i]];
-        b.local = fill[assign[i]]++;
-        dummy.position.set(b.x, b.y, b.z);
-        dummy.rotation.set(0, 0, 0);
-        dummy.scale.set(b.s, b.s, 1);
-        dummy.updateMatrix();
-        b.mesh.setMatrixAt(b.local, dummy.matrix);
-        // plus la rangée est loin, plus le visage s'enfonce dans l'ombre
-        // (teinte chaude de projecteur, jamais blafarde)
-        const l = Math.max(0.09, 0.42 - b.row * 0.05 + Math.random() * 0.06);
-        b.mesh.setColorAt(b.local, tint.setRGB(l * 1.12, l * 0.95, l * 0.78));
-      });
-      meshes.forEach(m => {
-        m.instanceMatrix.needsUpdate = true;
-        if (m.instanceColor) m.instanceColor.needsUpdate = true;
-        crowdMeshes.push(m);
-      });
-    };
-
-    /* ── Les poings levés ──────────────────────────────── */
-    const fistTex = keep(makeFistTexture());
-    const fistCount = mobile ? 44 : 80;
-    const fistGeo = keep(new THREE.PlaneGeometry(0.5, 1));
-    const fistMat = keep(new THREE.MeshBasicMaterial({
-      map: fistTex, transparent: true, alphaTest: 0.45, side: THREE.DoubleSide,
-    }));
-    const fists = new THREE.InstancedMesh(fistGeo, fistMat, fistCount);
-    const fistBase = [];
-    for (let i = 0; i < fistCount; i++) {
-      const host = crowdBase[Math.floor(Math.random() * crowdBase.length)];
-      fistBase.push({
-        x: host.x + (Math.random() - 0.5) * 0.3,
-        y: host.y, z: host.z + 0.05,
-        s: host.s, phase: Math.random() * Math.PI * 2,
-        stagger: Math.random() * 0.5,
-        zealous: Math.random() < 0.28, // certains gardent le poing levé quand la salle chauffe
-      });
-      dummy.position.set(0, -99, 0);
-      dummy.scale.set(0.001, 0.001, 1);
-      dummy.updateMatrix();
-      fists.setMatrixAt(i, dummy.matrix);
-    }
-    scene.add(fists);
 
     /* ── Bannières et drapeau ──────────────────────────── */
     const clothMeshes = [];
@@ -416,8 +233,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       const ovK = ovActive ? Math.max(0, 1 - sinceOvation / 3.2) : 0;
       const heat = Math.min(1, st.intensity + ovK * 0.8);
 
-      // caméra documentaire : dérive lente + secousse — calculée en premier
-      // pour que la foule puisse se tourner vers sa position à jour
+      // caméra documentaire : dérive lente + secousse
       st.shake *= 0.93;
       const shk = st.shake;
       camera.position.x = camBase.x + Math.sin(t * 0.21) * 0.35 + (Math.random() - 0.5) * 0.06 * shk;
@@ -426,73 +242,6 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       camera.fov = 55 - ovK * 3;
       camera.updateProjectionMatrix();
       camera.lookAt(0, 3 + Math.sin(t * 0.17) * 0.2, -11);
-
-      // foule : houle permanente, plus nerveuse quand ça chauffe, et
-      // chaque personne se tourne légèrement vers la caméra — ce sont
-      // de vraies silhouettes en volume, pas un mur de photos plates
-      if (crowdMeshes.length) {
-        const bobSpeed = 1.1 + heat * 2.4;
-        for (let i = 0; i < crowdCount; i++) {
-          const b = crowdBase[i];
-          const bob = Math.sin(t * bobSpeed * b.amp + b.phase) * (0.035 + heat * 0.09);
-          const yaw = Math.atan2(camera.position.x - b.x, camera.position.z - b.z);
-          const swayR = Math.sin(t * 0.7 * b.amp + b.phase * 2) * (0.01 + heat * 0.05);
-
-          // se lever / se rasseoir — la salle vit d'elle-même
-          let standK = 0;
-          if (b.stander) {
-            if (b.standStart < 0 && t > b.nextStand) {
-              b.standStart = t;
-              b.holdDur = 1.6 + Math.random() * 3;
-            }
-            if (b.standStart >= 0) {
-              const e = t - b.standStart;
-              if (e < 0.45) standK = e / 0.45;
-              else if (e < 0.45 + b.holdDur) standK = 1;
-              else if (e < 0.95 + b.holdDur) standK = 1 - (e - 0.45 - b.holdDur) / 0.5;
-              else {
-                b.standStart = -99;
-                b.nextStand = t + (8 + Math.random() * 26) / (0.4 + heat);
-              }
-            }
-            // quand la salle est en feu, tout le monde reste debout plus souvent
-          }
-          const lift = standK * 0.5;
-          dummy.position.set(b.x, b.y + Math.max(0, bob) + lift, b.z);
-          dummy.rotation.set(0, yaw, swayR);
-          dummy.scale.set(b.s, b.s * (1 + standK * 0.1), 1);
-          dummy.updateMatrix();
-          b.mesh.setMatrixAt(b.local, dummy.matrix);
-        }
-        for (const m of crowdMeshes) m.instanceMatrix.needsUpdate = true;
-      }
-
-      // poings : levés en masse à l'ovation, quelques-uns dressés selon la chaleur
-      for (let i = 0; i < fistCount; i++) {
-        const f = fistBase[i];
-        let up = 0;
-        if (ovActive) {
-          const local = Math.min(1, Math.max(0, (sinceOvation - f.stagger) / 0.35));
-          const fall = sinceOvation > 2.2 ? Math.max(0, 1 - (sinceOvation - 2.2) / 1) : 1;
-          up = local * fall;
-        } else if (f.zealous && heat > 0.55) {
-          up = Math.min(1, (heat - 0.55) * 3);
-        }
-        if (up > 0.01) {
-          const pump = Math.sin(t * 7 + f.phase) * 0.09 * up * (0.4 + heat);
-          const fyaw = Math.atan2(camera.position.x - f.x, camera.position.z - f.z);
-          dummy.position.set(f.x, f.y + 0.55 * f.s * up + pump, f.z);
-          dummy.scale.set(0.5 * f.s, f.s * up, 1);
-          dummy.rotation.set(0, fyaw, Math.sin(f.phase) * 0.14);
-        } else {
-          dummy.position.set(0, -99, 0);
-          dummy.scale.set(0.001, 0.001, 1);
-          dummy.rotation.set(0, 0, 0);
-        }
-        dummy.updateMatrix();
-        fists.setMatrixAt(i, dummy.matrix);
-      }
-      fists.instanceMatrix.needsUpdate = true;
 
       // tissus : ondulation, plus violente à l'ovation
       for (const c of clothMeshes) {
@@ -544,8 +293,6 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       disposed = true;
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
-      crowdMeshes.forEach(m => m.dispose());
-      fists.dispose();
       disposables.forEach(d => d.dispose && d.dispose());
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
