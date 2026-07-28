@@ -96,12 +96,24 @@
   -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
   mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
   /* la caméra pousse lentement — zoom documentaire */
-  animation: tr-push 12s ease-out both;
+  animation: tr-push 12s ease-out both, tr-handheld 5.3s ease-in-out infinite;
 }
 
 @keyframes tr-push {
   from { transform: scale(1); }
   to   { transform: scale(1.06); }
+}
+
+/* Caméra à l'épaule, jamais tout à fait immobile — un tremblement
+   irrégulier et minuscule, pas un mouvement propre et mécanique. */
+@keyframes tr-handheld {
+  0%   { translate: 0 0; rotate: 0deg; }
+  17%  { translate: 0.4% -0.2%; rotate: 0.15deg; }
+  34%  { translate: -0.3% 0.3%; rotate: -0.1deg; }
+  52%  { translate: 0.2% 0.4%; rotate: 0.2deg; }
+  68%  { translate: -0.4% -0.1%; rotate: -0.15deg; }
+  85%  { translate: 0.3% -0.3%; rotate: 0.1deg; }
+  100% { translate: 0 0; rotate: 0deg; }
 }
 
 /* Vraie illustration (Olga, Diego, John, Greta, Romaric) : traitement
@@ -114,7 +126,7 @@
   filter: grayscale(0.85) contrast(1.35) brightness(0.94) sepia(0.06);
   -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 98%);
   mask-image: linear-gradient(to bottom, #000 78%, transparent 98%);
-  animation: tr-push 13s ease-out both, tr-photo-breathe 4.2s ease-in-out 1.2s infinite;
+  animation: tr-push 13s ease-out both, tr-photo-breathe 4.2s ease-in-out 1.2s infinite, tr-handheld 6.1s ease-in-out infinite;
 }
 @keyframes tr-photo-breathe {
   0%, 100% { filter: grayscale(0.85) contrast(1.35) brightness(0.94) sepia(0.06); }

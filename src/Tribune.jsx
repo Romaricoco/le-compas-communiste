@@ -666,6 +666,8 @@ export default function Tribune({ onExit }) {
 
     for (let k = 0; k < data.lines.length; k++) {
       if (abortRef.current) return;
+      // Roberto bascule de registre en direct — la salle tressaille
+      if (data.lines[k].member === 'roberto') hallRef.current?.murmur();
       await playLine(data.lines[k], urls[k]);
     }
     urls.forEach(u => { if (u) URL.revokeObjectURL(u); });
@@ -681,7 +683,7 @@ export default function Tribune({ onExit }) {
     if (data.fx === 'rire') { audioRef.current?.laughter(1); hallRef.current?.murmur(); }
     if (data.dida) {
       setCurrent({ dida: data.dida });
-      await wait(2000);
+      await wait(1700 + Math.random() * 700);
     }
 
     // Mise à jour des convictions
@@ -721,7 +723,7 @@ export default function Tribune({ onExit }) {
 
     setCurrent(null);
     setPhase('state');
-    await wait(2600);
+    await wait(2200 + Math.random() * 900);
     if (abortRef.current) return;
 
     if (currentRound >= ROUNDS) {
