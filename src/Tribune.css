@@ -133,6 +133,20 @@
   50%      { filter: grayscale(0.85) contrast(1.38) brightness(1.0) sepia(0.06); }
 }
 
+/* Pendant qu'il parle vraiment (pas une didascalie) : à défaut de
+   vraies lèvres qui bougent, un pouls net de lumière et d'échelle,
+   au rythme approximatif d'une élocution — plus perceptible que la
+   simple respiration au repos. */
+.tr-speaking-photo {
+  animation: tr-push 13s ease-out both, tr-handheld 6.1s ease-in-out infinite,
+             tr-speak-pulse 0.62s ease-in-out infinite;
+}
+@keyframes tr-speak-pulse {
+  0%, 100% { filter: grayscale(0.82) contrast(1.4) brightness(0.95) sepia(0.06); scale: 1; }
+  35%      { filter: grayscale(0.8) contrast(1.46) brightness(1.05) sepia(0.06); scale: 1.008; }
+  60%      { filter: grayscale(0.84) contrast(1.36) brightness(0.92) sepia(0.06); scale: 0.999; }
+}
+
 @keyframes tr-witness-in {
   from { opacity: 0; }
   to   { opacity: 1; }

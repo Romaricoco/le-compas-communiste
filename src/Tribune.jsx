@@ -822,7 +822,11 @@ export default function Tribune({ onExit }) {
       {phase === 'playing' && speaker && (
         <div key={speaker.id} className={`tr-witness tr-witness-${speaker.side}`}>
           {PHOTO_MEMBERS.has(speaker.id) ? (
-            <img className="tr-witness-photo" src={`/portraits/${speaker.id}.jpg`} alt="" />
+            <img
+              className={'tr-witness-photo' + (!current.dida ? ' tr-speaking-photo' : '')}
+              src={`/portraits/${speaker.id}.jpg`}
+              alt=""
+            />
           ) : (
             <CartoonWitness memberId={speaker.id} speaking={!current.dida} />
           )}

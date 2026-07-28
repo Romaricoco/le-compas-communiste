@@ -25,13 +25,13 @@ Le sujet est sérieux, la salle ne l'est pas en permanence. Ce sont des camarade
 Assez régulièrement (environ un tour sur trois), un témoin BRANDIT une citation réelle et exacte de Marx, Engels, Lénine ou Mao — courte, connue, EN CRIANT, comme une arme qu'on abat sur la table plutôt qu'une référence académique posée. Exemple d'esprit (n'utilise pas toujours les mêmes) : Lénine « Il n'y a pas de théorie révolutionnaire sans mouvement révolutionnaire ! », Mao « Le pouvoir politique est au bout du fusil ! », Marx « Prolétaires de tous les pays, unissez-vous ! ». La citation doit servir l'argument du moment, pas être plaquée au hasard.
 
 == RÈGLES DU TOUR ==
-1. Choisis TROIS témoins pour ce tour (varie par rapport aux tours précédents visibles dans la transcription). Felix (id "romaric") doit apparaître dans presque tous les tours (c'est le président de séance, il encadre le débat) ; les sept autres tournent.
-2. IMPORTANT — fabrique un vrai échange, pas trois monologues parallèles :
-   - La 1ère réplique réagit à l'argument du joueur.
-   - La 2e réplique réagit à ce que le témoin précédent VIENT DE DIRE (elle le nomme PAR SON PRÉNOM RÉEL, le contredit, enchérit, ou s'en moque) — PAS au joueur directement.
+1. Choisis TROIS témoins pour ce tour. Felix (id "romaric") doit apparaître dans presque tous les tours (c'est le président de séance, il encadre le débat). POUR LES DEUX AUTRES PLACES : regarde la TRANSCRIPTION — repère qui n'a PAS ENCORE PARLÉ depuis le début de la partie et donne-lui PRIORITÉ ABSOLUE. Ne laisse JAMAIS un témoin absent plus de 2 tours d'affilée ; sur une partie de 5 tours, chacun des huit doit avoir parlé au moins une fois avant le tour 4. N'utilise la simple variation stylistique ("qui est pertinent pour cet argument") qu'une fois cette couverture assurée.
+2. IMPORTANT — fabrique un vrai échange, pas trois monologues parallèles, et reste STRICTEMENT cohérent avec ce qui précède :
+   - La 1ère réplique réagit à l'argument du joueur — à CET argument précis, pas à un sujet générique.
+   - La 2e réplique réagit à ce que le témoin précédent VIENT DE DIRE dans CE tour (elle le nomme PAR SON PRÉNOM RÉEL, le contredit, enchérit, ou s'en moque) — PAS au joueur directement, et jamais un hors-sujet.
    - La 3e réplique relance soit vers un autre témoin, soit vers le joueur avec une question directe et pointue qu'il devra adresser à son prochain tour.
-   Utilise toujours les VRAIS PRÉNOMS (Esperanza, Alain, Wei, Ana, Adama, Greta, Felix, Roberto) dans le texte des répliques pour que l'interpellation soit explicite ("Esperanza a raison, mais..." / "Tu te trompes, Alain..."), JAMAIS les id JSON.
-3. Chaque réplique : UNE phrase percutante, MAXIMUM 18 mots. Parlé, direct, sans emphase littéraire.
+   Ne fais JAMAIS dire à un témoin quelque chose qui contredit sans raison sa position ou l'historique visible dans la transcription — la cohérence prime sur l'effet. Utilise toujours les VRAIS PRÉNOMS (Esperanza, Alain, Wei, Ana, Adama, Greta, Felix, Roberto) dans le texte des répliques pour que l'interpellation soit explicite ("Esperanza a raison, mais..." / "Tu te trompes, Alain..."), JAMAIS les id JSON.
+3. Chaque réplique : UNE phrase percutante, MAXIMUM 18 mots, qui reste lisible et compréhensible isolément — pas une allusion elliptique que seul le témoin comprendrait. Parlé, direct, sans emphase littéraire.
 4. Évalue l'argument du joueur selon les critères marxistes du compas : remise en cause de la propriété privée des moyens de production, réduction de l'exploitation, orientation de classe (État/institutions au service des travailleurs), internationalisme.
 5. "deltas" : évolution de conviction de CHACUN des huit témoins (par id JSON), entier entre -20 et +20. Argument précis, concret et cohérent = positif. Argument vague, creux, contradictoire ou hors sujet = négatif. Un témoin peut aussi changer d'avis à cause d'un ÉCHANGE ENTRE TÉMOINS (pas seulement à cause du joueur). Sois exigeant mais juste : un bon argument doit pouvoir gagner.
 6. "dida" : une didascalie de salle très courte (max 12 mots) ou null.
@@ -89,14 +89,22 @@ export default async function handler(req, res) {
   const keySource = localKey ? 'clé collée dans l’app' : 'clé du site (Vercel)';
   if (!apiKey) return res.status(500).json({ error: 'Aucune clé Mistral : ni sur Vercel (MISTRAL_API_KEY), ni collée dans l’app' });
 
-  const history = Array.isArray(transcript)
-    ? transcript.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n')
-    : '';
+const ALL_IDS = ['olga', 'diego', 'wei', 'amara', 'john', 'greta', 'romaric', 'roberto'];
+  const transcriptArr = Array.isArray(transcript) ? transcript : [];
+  const history = transcriptArr.slice(-12).map(t => `${t.by} : ${t.fr}`).join('\n');
+  // Calculé côté serveur sur TOUT l'historique (pas la fenêtre tronquée
+  // envoyée au modèle) — plus fiable que de faire deviner Mistral à
+  // partir du texte brut, et ça évite qu'un témoin disparaisse en cours
+  // de partie simplement parce que sa réplique est sortie de la fenêtre.
+  const spoken = new Set(transcriptArr.map(t => t.by).filter(id => ALL_IDS.includes(id)));
+  const notYetHeard = ALL_IDS.filter(id => id !== 'romaric' && !spoken.has(id));
 
   const userContent = `CAUSE DÉFENDUE : ${String(cause).slice(0, 300)}
 TOUR : ${round || 1} sur 5
 CONVICTIONS ACTUELLES (0-100) : ${JSON.stringify(convictions || {})}
-TRANSCRIPTION :
+TÉMOINS N'AYANT PAS ENCORE PARLÉ : ${notYetHeard.length ? notYetHeard.join(', ') : 'tous ont déjà parlé au moins une fois'}
+${notYetHeard.length ? 'Donne PRIORITÉ ABSOLUE à au moins un de ces témoins pour ce tour (en plus de Felix).' : ''}
+TRANSCRIPTION RÉCENTE :
 ${history || '(début de séance)'}
 
 ARGUMENT DU JOUEUR À CE TOUR :
