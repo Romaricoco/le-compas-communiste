@@ -13,20 +13,24 @@ import './Tribune.css';
 
 const photoUrl = id => `https://unsplash.com/photos/${id}/download?force=true&w=640`;
 
+// Les id restent stables en interne (convictions, voix, palette) ; les
+// name affichés/prononcés respectent les vrais noms du scénario source
+// pour les témoins qui ont une illustration empruntée à ce scénario.
 const MEMBERS = [
   /* photo : servie par le site (téléchargée au build) ; remote : repli Unsplash */
-  { id: 'olga',  name: 'Olga',  lang: 'Русский',  role: 'vétérane syndicaliste', photo: '/portraits/olga.jpg',  remote: photoUrl('cwZGbT9S2HU'), voice: '21m00Tcm4TlvDq8ikWAM', side: 'l' },
-  { id: 'diego', name: 'Diego', lang: 'Español',  role: 'jeune anarchiste',      photo: '/portraits/diego.jpg', remote: photoUrl('ApDREtVkv5Y'), voice: 'VR6AewLTigWG4xSOukaG', side: 'r' },
-  { id: 'wei',   name: 'Wei',   lang: '中文',      role: 'matérialiste',          photo: '/portraits/wei.jpg',   remote: photoUrl('8ukPkmUuSd8'), voice: 'pNInz6obpgDQGcFmaJgB', side: 'l' },
-  { id: 'amara', name: 'Amara', lang: 'العربية',   role: 'internationaliste',     photo: '/portraits/amara.jpg', remote: photoUrl('4cA1jDfaVJU'), voice: 'EXAVITQu4vr4xnSDxMaL', side: 'r' },
-  { id: 'john',  name: 'John',  lang: 'English',  role: 'ouvrier sceptique',     photo: '/portraits/john.jpg',  remote: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX', side: 'l' },
-  { id: 'greta', name: 'Greta', lang: 'Deutsch',  role: 'intellectuelle',        photo: '/portraits/greta.jpg', remote: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O', side: 'r' },
-  { id: 'romaric', name: 'Romaric', lang: 'Français', role: 'président de séance', photo: '/portraits/romaric.jpg', remote: '', voice: 'ErXwobaYiN019PkySvjV', side: 'l' },
+  { id: 'olga',  name: 'Esperanza', lang: 'Français',  role: 'vétérane syndicaliste', photo: '/portraits/olga.jpg',  remote: photoUrl('cwZGbT9S2HU'), voice: '21m00Tcm4TlvDq8ikWAM', side: 'l' },
+  { id: 'diego', name: 'Alain',     lang: 'Français',  role: 'jeune anarchiste',      photo: '/portraits/diego.jpg', remote: photoUrl('ApDREtVkv5Y'), voice: 'VR6AewLTigWG4xSOukaG', side: 'r' },
+  { id: 'wei',   name: 'Wei',       lang: 'Français',  role: 'matérialiste',          photo: '/portraits/wei.jpg',   remote: photoUrl('8ukPkmUuSd8'), voice: 'pNInz6obpgDQGcFmaJgB', side: 'l' },
+  { id: 'amara', name: 'Ana',       lang: 'Français',  role: 'internationaliste',     photo: '/portraits/amara.jpg', remote: photoUrl('4cA1jDfaVJU'), voice: 'EXAVITQu4vr4xnSDxMaL', side: 'r' },
+  { id: 'john',  name: 'Adama',     lang: 'Français',  role: 'ouvrier sceptique',     photo: '/portraits/john.jpg',  remote: photoUrl('oULrOWE8R5U'), voice: 'TxGEqnHWrfWFTfGW9XjX', side: 'l' },
+  { id: 'greta', name: 'Greta',     lang: 'Français',  role: 'intellectuelle',        photo: '/portraits/greta.jpg', remote: photoUrl('RoV_LoLtZWU'), voice: 'MF3mGyEYCl7XYWbV9V6O', side: 'r' },
+  { id: 'romaric', name: 'Felix',   lang: 'Français', role: 'président de séance', photo: '/portraits/romaric.jpg', remote: '', voice: 'ErXwobaYiN019PkySvjV', side: 'l' },
+  { id: 'roberto', name: 'Roberto', lang: 'Français', role: 'gendarme retraité, théâtral', photo: '/portraits/roberto.jpg', remote: '', voice: 'yoZ06aMxZJJ28mfd3POQ', side: 'r' },
 ];
 const memberById = id => MEMBERS.find(m => m.id === id);
 // Vraie illustration disponible pour ceux-là ; wei et amara gardent le
 // personnage en aplats (représentation ethnique fidèle déjà travaillée).
-const PHOTO_MEMBERS = new Set(['olga', 'diego', 'john', 'greta', 'romaric']);
+const PHOTO_MEMBERS = new Set(['olga', 'diego', 'john', 'amara', 'romaric', 'roberto']);
 
 const START_CONVICTION = 40;
 const CONVINCED_AT = 60;
@@ -77,9 +81,11 @@ async function fetchVoice(text, voiceId) {
 
 /* ── Voix de secours : synthèse du navigateur dans la langue
       du témoin, quand ElevenLabs n'est pas disponible ──────── */
-const SPEECH_LANGS = { olga: 'ru-RU', diego: 'es-ES', wei: 'zh-CN', amara: 'ar-SA', john: 'en-GB', greta: 'de-DE', romaric: 'fr-FR' };
-const SPEECH_GENDER = { olga: 'female', diego: 'male', wei: 'female', amara: 'female', john: 'male', greta: 'female', romaric: 'male' };
-const SPEECH_PITCH = { olga: 0.9, diego: 1.02, wei: 1.04, amara: 0.98, john: 0.88, greta: 0.97, romaric: 0.95 };
+// Tout le monde parle français désormais — plus de langues étrangères.
+const SPEECH_LANGS = { olga: 'fr-FR', diego: 'fr-FR', wei: 'fr-FR', amara: 'fr-FR', john: 'fr-FR', greta: 'fr-FR', romaric: 'fr-FR', roberto: 'fr-FR' };
+const SPEECH_GENDER = { olga: 'female', diego: 'male', wei: 'female', amara: 'female', john: 'male', greta: 'female', romaric: 'male', roberto: 'male' };
+// Olga (Esperanza) : voix éraillée — pitch bas, débit plus lent
+const SPEECH_PITCH = { olga: 0.72, diego: 1.02, wei: 1.04, amara: 0.98, john: 0.88, greta: 0.97, romaric: 0.95, roberto: 1.0 };
 
 // Si aucune voix n'est installée pour la langue exacte, on tente des
 // variantes proches avant de renoncer.
@@ -148,26 +154,9 @@ function pickVoice(lang, gender) {
   return best;
 }
 
-/* La salle vit : des voix lancent des interjections dans toutes les langues */
+/* La salle vit : des voix lancent des interjections — tout en français */
 const INTERJECTIONS = [
-  ['ru-RU', ['Да!', 'Точно!', 'Верно!', 'Слушайте, слушайте!']],
-  ['es-ES', ['¡Eso es!', '¡Claro!', '¡Que hable!']],
-  ['de-DE', ['Genau!', 'Richtig!', 'Weiter!']],
-  ['en-GB', ['Hear, hear!', 'Aye!', 'Go on!']],
-  ['ar-SA', ['نعم!', 'صحيح!']],
-  ['zh-CN', ['对!', '说得好!']],
-  ['fr-FR', ['Bravo !', 'Exact !', 'Qu’il parle !']],
-];
-
-/* Irruptions nommées : un témoin précis surgit à l'écran, hors du
-   tour normal — c'est ce qui casse la routine et rend la salle
-   imprévisible. Phrases courtes, dans la langue du témoin. */
-/* Réactions courtes en français, génériques — pas de fausse citation
-   qui prétend commenter un argument précis, juste une réaction brute :
-   colère, rejet, ou rire. */
-const ERUPTIONS_FR = [
-  'Assez !', 'N’importe quoi !', 'Ça suffit !', 'Encore ?!', 'Pff...',
-  'Mensonge !', 'Ridicule !', 'Prouve-le !', 'Ha !', 'Silence !',
+  ['fr-FR', ['Bravo !', 'Exact !', 'Qu’il parle !', 'Voilà !', 'Bien dit !', 'Continue !']],
 ];
 
 function crowdInterjection(volume = 0.3) {
@@ -193,8 +182,13 @@ function speakFallback(text, memberId) {
       u.lang = lang;
       const match = pickVoice(lang, SPEECH_GENDER[memberId] || 'female');
       if (match) u.voice = match;
-      u.rate = 0.9;
-      u.pitch = SPEECH_PITCH[memberId] ?? 1;
+      // Adama/John : la retenue est le personnage — débit lent, silences
+      u.rate = memberId === 'john' ? 0.78 : 0.9;
+      // Roberto/Gina : l'instabilité EST le personnage — bascule en
+      // direct entre grave/policier et aigu/théâtral, jamais lissé
+      u.pitch = memberId === 'roberto'
+        ? (Math.random() < 0.5 ? 0.72 + Math.random() * 0.08 : 1.3 + Math.random() * 0.15)
+        : SPEECH_PITCH[memberId] ?? 1;
       u.volume = 1;
       let done = false;
       const finish = ok => { if (!done) { done = true; resolve(ok); } };
@@ -852,7 +846,7 @@ export default function Tribune({ onExit }) {
           <div className="tr-door-title">LA TRIBUNE</div>
           <div className="tr-door-sub">CINQ TOURS. CONVAINCRE — OU REDESCENDRE.</div>
           <button className="tr-door-btn" onClick={enter}>Monter à la tribune</button>
-          <div className="tr-door-note">7 témoins · voix réelles · le jeu</div>
+          <div className="tr-door-note">8 témoins · voix réelles · le jeu</div>
         </div>
       )}
 
