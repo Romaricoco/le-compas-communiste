@@ -24,6 +24,9 @@ const MEMBERS = [
   { id: 'romaric', name: 'Romaric', lang: 'Français', role: 'président de séance', photo: '/portraits/romaric.jpg', remote: '', voice: 'ErXwobaYiN019PkySvjV', side: 'l' },
 ];
 const memberById = id => MEMBERS.find(m => m.id === id);
+// Vraie illustration disponible pour ceux-là ; wei et amara gardent le
+// personnage en aplats (représentation ethnique fidèle déjà travaillée).
+const PHOTO_MEMBERS = new Set(['olga', 'diego', 'john', 'greta', 'romaric']);
 
 const START_CONVICTION = 40;
 const CONVINCED_AT = 60;
@@ -562,7 +565,6 @@ export default function Tribune({ onExit }) {
   const [convictions, setConvictions] = useState({});
   const [gameError, setGameError] = useState(null);
   const [pendingQuestion, setPendingQuestion] = useState(null);
-  const [duel, setDuel] = useState([]); // jusqu'à 2 : [{ memberId, fr, side, laugh }]
   const [needMistralKey, setNeedMistralKey] = useState(false);
   const [mistralKeyInput, setMistralKeyInput] = useState('');
 
@@ -819,27 +821,17 @@ export default function Tribune({ onExit }) {
       <div className="tr-vignette" />
       <div className="tr-grade" />
 
-      {/* Le témoin qui parle : personnage en aplats, vraiment articulé */}
+      {/* Le témoin qui parle : vraie illustration quand on en a une,
+          personnage en aplats articulé sinon (wei, amara) */}
       {phase === 'playing' && speaker && (
         <div key={speaker.id} className={`tr-witness tr-witness-${speaker.side}`}>
-          <CartoonWitness memberId={speaker.id} speaking={!current.dida} />
+          {PHOTO_MEMBERS.has(speaker.id) ? (
+            <img className="tr-witness-photo" src={`/portraits/${speaker.id}.jpg`} alt="" />
+          ) : (
+            <CartoonWitness memberId={speaker.id} speaking={!current.dida} />
+          )}
         </div>
       )}
-
-      {/* Duel imprévu : deux témoins qui surgissent face à face,
-        n'importe quand, indépendamment de l'écran affiché */}
-      {duel.map(d => {
-        const m = memberById(d.memberId);
-        return (
-          <div key={d.side} className={`tr-duel tr-duel-${d.side}`}>
-            <div className="tr-duel-fig">
-              <CartoonWitness memberId={d.memberId} speaking pose={d.laugh ? 2 : 0} />
-            </div>
-            <div className="tr-duel-name">{m?.name}</div>
-            <div className="tr-duel-line">{d.fr}</div>
-          </div>
-        );
-      })}
 
       <div className="tr-grain" />
       <div className="tr-bar tr-bar-top" />

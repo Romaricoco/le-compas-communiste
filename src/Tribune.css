@@ -104,6 +104,23 @@
   to   { transform: scale(1.06); }
 }
 
+/* Vraie illustration (Olga, Diego, John, Greta, Romaric) : traitement
+   documentaire — gris, contraste, respiration, la caméra qui pousse. */
+.tr-witness-photo {
+  width: 100%; height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  display: block;
+  filter: grayscale(0.85) contrast(1.35) brightness(0.94) sepia(0.06);
+  -webkit-mask-image: linear-gradient(to bottom, #000 78%, transparent 98%);
+  mask-image: linear-gradient(to bottom, #000 78%, transparent 98%);
+  animation: tr-push 13s ease-out both, tr-photo-breathe 4.2s ease-in-out 1.2s infinite;
+}
+@keyframes tr-photo-breathe {
+  0%, 100% { filter: grayscale(0.85) contrast(1.35) brightness(0.94) sepia(0.06); }
+  50%      { filter: grayscale(0.85) contrast(1.38) brightness(1.0) sepia(0.06); }
+}
+
 @keyframes tr-witness-in {
   from { opacity: 0; }
   to   { opacity: 1; }
