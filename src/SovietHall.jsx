@@ -408,15 +408,15 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
 
     /* ── Post-traitement : vrai bloom, pas des sprites additive
        qui simulaient grossièrement la lumière qui déborde ───── */
-    const composer = new EffectComposer(renderer);
-    composer.addPass(new RenderPass(scene, camera));
-    const bloomPass = new UnrealBloomPass(
-      new THREE.Vector2(mount.clientWidth, mount.clientHeight),
-      mobile ? 0.55 : 0.85,
-      0.46,
-      0.78
-    );
-    composer.addPass(bloomPass);
+    // sur mobile on s'en passe : le bloom coûte trop cher en calcul et
+    // ferait ramer toute la page (texte, animations des délégués)
+    let composer = null, bloomPass = null;
+    if (!mobile) {
+      composer = new EffectComposer(renderer);
+      composer.addPass(new RenderPass(scene, camera));
+      bloomPass = new UnrealBloomPass(new THREE.Vector2(mount.clientWidth, mount.clientHeight), 0.85, 0.46, 0.78);
+      composer.addPass(bloomPass);
+    }
 
     /* ── Boucle ────────────────────────────────────────── */
     let raf = 0;
@@ -525,7 +525,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       }
       dustGeo.attributes.position.needsUpdate = true;
 
-      composer.render();
+      if (composer) composer.render(); else renderer.render(scene, camera);
     }
     animate();
 
@@ -534,7 +534,7 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       camera.aspect = mount.clientWidth / mount.clientHeight;
       camera.updateProjectionMatrix();
       renderer.setSize(mount.clientWidth, mount.clientHeight);
-      composer.setSize(mount.clientWidth, mount.clientHeight);
+      composer?.setSize(mount.clientWidth, mount.clientHeight);
     };
     window.addEventListener('resize', onResize);
 
@@ -543,8 +543,8 @@ const SovietHall = forwardRef(function SovietHall(_props, ref) {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', onResize);
       disposables.forEach(d => d.dispose && d.dispose());
-      bloomPass.dispose?.();
-      composer.dispose?.();
+      bloomPass?.dispose?.();
+      composer?.dispose?.();
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
     };
