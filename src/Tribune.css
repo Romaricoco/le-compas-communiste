@@ -399,3 +399,5 @@
   .as-stage .as-cap { bottom: 20px; }
   .as-stage.phase-input .as-cap { bottom: 156px; }
 }
+
+.as-offline { margin-left: 8px; color: #c9a86a; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }

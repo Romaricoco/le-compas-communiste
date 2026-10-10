@@ -3,6 +3,7 @@ import Scene from './tribune/Scene.jsx';
 import { CAST, byId, indexOf, ROUNDS, START, CONVINCED_AT, WIN_AT, stance } from './tribune/cast.js';
 import { fetchVoice, initVoices, speakBrowser, hush } from './tribune/voice.js';
 import { createHallAudio } from './tribune/audio.js';
+import { offlineRound, resetOffline } from './tribune/offline.js';
 import './Tribune.css';
 
 /* ══════════════════════════════════════════════════════════
@@ -86,6 +87,7 @@ export default function Tribune({ onExit }) {
   const [aside, setAside] = useState(-1);        // un délégué qui glisse un mot à son voisin
   const [error, setError] = useState(null);
   const [needKey, setNeedKey] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [keyInput, setKeyInput] = useState('');
 
   const hallRef = useRef(null);
@@ -94,6 +96,7 @@ export default function Tribune({ onExit }) {
   const convRef = useRef(conv);
   const transcriptRef = useRef([]);
   const skipRef = useRef(null);
+  const offlineRef = useRef(false);
   const deadRef = useRef(false);
 
   useEffect(() => {
@@ -167,24 +170,30 @@ export default function Tribune({ onExit }) {
     hallRef.current?.murmur();
 
     let data;
-    try {
-      data = await deliberate({
-        cause: theCause, argument, round: r, rounds: ROUNDS,
-        transcript: transcriptRef.current, convictions: convRef.current,
-      });
-    } catch (err) {
-      const msg = String(err.message || err);
-      setReact('');
-      setError(/401|403|aucune clé|unauthorized/i.test(msg)
-        ? `Clé Mistral refusée ou absente — ${msg.slice(0, 120)}`
-        : `L’assemblée n’a pas pu délibérer : ${msg.slice(0, 140)}`);
-      if (/401|403|aucune clé|unauthorized/i.test(msg)) setNeedKey(true);
-      setAsking(r === 1 ? OPENING : { by: 'felix', fr: 'Reprends, camarade, on ne t’a pas entendu.' });
-      setPhase('input');
-      return;
+    const payload = {
+      cause: theCause, argument, round: r, rounds: ROUNDS,
+      transcript: transcriptRef.current, convictions: convRef.current,
+    };
+    if (offlineRef.current) {
+      data = offlineRound(payload);
+    } else {
+      try {
+        data = await deliberate(payload);
+      } catch (err) {
+        const msg = String(err.message || err);
+        // La séance ne s'arrête pas pour une clé : on bascule sur la
+        // salle hors-ligne et on prévient une fois.
+        offlineRef.current = true;
+        setOffline(true);
+        resetOffline();
+        if (/401|403|aucune clé|unauthorized/i.test(msg)) setNeedKey(true);
+        data = offlineRound(payload);
+      }
     }
 
-    const urls = await Promise.all(data.lines.map(l => fetchVoice(l.fr, byId(l.member)?.voice)));
+    const urls = offlineRef.current
+      ? data.lines.map(() => null)
+      : await Promise.all(data.lines.map(l => fetchVoice(l.fr, byId(l.member)?.voice)));
     if (deadRef.current) return;
     setReact('');
 
@@ -262,6 +271,7 @@ export default function Tribune({ onExit }) {
     hush();
     setRound(0);
     setCause('');
+    resetOffline();
     setReact('');
     setPlayerLine('');
     const init = Object.fromEntries(CAST.map(c => [c.id, START]));
@@ -319,7 +329,10 @@ export default function Tribune({ onExit }) {
       {/* bandeau du haut */}
       {phase !== 'door' && (
         <header className="as-top">
-          <div className="as-top-left">LA TRIBUNE{round > 0 && <> · TOUR {Math.min(round, ROUNDS)}/{ROUNDS}</>}</div>
+          <div className="as-top-left">
+            LA TRIBUNE{round > 0 && <> · TOUR {Math.min(round, ROUNDS)}/{ROUNDS}</>}
+            {offline && <span className="as-offline" title="Aucune clé disponible : la salle siège sur ses propres répliques">· salle hors-ligne</span>}
+          </div>
           {cause && <div className="as-top-cause">« {cause} »</div>}
           <div className="as-top-right">
             <span className={convinced >= WIN_AT ? 'ok' : ''}>{convinced}/6 convaincus</span>
