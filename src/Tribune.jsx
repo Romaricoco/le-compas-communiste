@@ -186,7 +186,9 @@ export default function Tribune({ onExit }) {
         offlineRef.current = true;
         setOffline(true);
         resetOffline();
-        if (/401|403|aucune clé|unauthorized/i.test(msg)) setNeedKey(true);
+        // pas de clé, pas de réclamation : on ne barre pas la partie avec
+        // un champ à remplir. Le bandeau le dit, et qui a une clé peut
+        // toujours la coller depuis la zone de saisie.
         data = offlineRound(payload);
       }
     }
@@ -386,6 +388,12 @@ export default function Tribune({ onExit }) {
             <button className="as-btn as-btn-red" onClick={submit} disabled={text.trim().length < 4}>Parler</button>
           </div>
           {error && <div className="as-error">{error}</div>}
+          {offline && !needKey && (
+            <div className="as-offnote">
+              Aucune clé Mistral valide : la salle siège sur ses propres répliques.
+              <button type="button" className="as-link" onClick={() => setNeedKey(true)}>j’ai une clé</button>
+            </div>
+          )}
           {needKey && (
             <div className="as-key">
               <span>Colle ta clé API Mistral (console.mistral.ai → API Keys, elle reste dans ton navigateur) :</span>

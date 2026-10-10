@@ -401,3 +401,6 @@
 }
 
 .as-offline { margin-left: 8px; color: #c9a86a; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; }
+
+.as-offnote { margin-top: 8px; font-size: 13px; color: #a08b6d; }
+.as-link { background: none; border: 0; padding: 0 0 0 6px; color: var(--red-hi, #c9a86a); font: inherit; text-decoration: underline; cursor: pointer; }
