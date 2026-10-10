@@ -378,3 +378,24 @@
   .as-input-text { font-size: 16px; }
   .as-skip { display: none; }
 }
+
+
+/* ── Scène dessinée (src/tribune/Scene.jsx) ──────────────────
+   Le hall 3D et les portraits en DOM sont remplacés par une seule
+   toile : fond, foule, marionnettes, table et tribune. Il ne reste
+   en HTML que le bandeau, les répliques et la saisie. */
+.as-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.as-stage .as-front { position: absolute; inset: 0; pointer-events: none; display: block; }
+.as-stage .as-cap {
+  position: absolute; left: 50%; transform: translateX(-50%);
+  bottom: 26px; width: min(760px, calc(100% - 28px));
+  text-align: center; top: auto; right: auto;
+}
+/* quand tu écris, la réplique remonte au-dessus de la saisie */
+.as-stage.phase-input .as-cap { bottom: 150px; }
+.as-stage .as-input { top: auto; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); }
+.as-stage .as-player { bottom: auto; top: 98px; }
+@media (max-width: 560px) {
+  .as-stage .as-cap { bottom: 20px; }
+  .as-stage.phase-input .as-cap { bottom: 156px; }
+}

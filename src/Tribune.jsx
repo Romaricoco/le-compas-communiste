@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import SovietHall from './SovietHall.jsx';
+import Scene from './tribune/Scene.jsx';
 import { CAST, byId, indexOf, ROUNDS, START, CONVINCED_AT, WIN_AT, stance } from './tribune/cast.js';
 import { fetchVoice, initVoices, speakBrowser, hush } from './tribune/voice.js';
 import { createHallAudio } from './tribune/audio.js';
@@ -149,6 +149,7 @@ export default function Tribune({ onExit }) {
     p.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
     p.play().catch(() => {});
     playerRef.current = p;
+    hallRef.current?.attachAudio(p);
     initVoices();
     audioRef.current?.gavel(3);
     hallRef.current?.murmur();
@@ -302,8 +303,18 @@ export default function Tribune({ onExit }) {
 
   return (
     <div className={`as-stage phase-${phase}`} onClick={phase === 'debate' ? () => skipRef.current?.() : undefined}>
-      <SovietHall ref={hallRef} />
-      <div className="as-shade" />
+      <Scene
+        ref={hallRef}
+        conv={conv}
+        speaker={focusId}
+        to={line?.to}
+        tone={line?.tone}
+        speaking={!!line}
+        phase={phase}
+        deltas={deltas}
+        aside={focusId ? -1 : aside}
+        cause={cause}
+      />
 
       {/* bandeau du haut */}
       {phase !== 'door' && (
@@ -328,57 +339,10 @@ export default function Tribune({ onExit }) {
 
       {dida && <div className="as-dida">{dida}</div>}
 
-      {/* le premier rang */}
-      <div className={`as-front react-${react || 'none'}${phase === 'verdict' ? (won ? ' end-won' : ' end-lost') : ''}`}>
-        <div className="as-row">
-          {CAST.map((c, i) => {
-            const speaking = focusId === c.id;
-            const listening = focusIdx >= 0 && !speaking;
-            const addressed = line && line.to === c.id;
-            const d = deltas?.[c.id] || 0;
-            const tilt = listening ? clamp((focusIdx - i) * 2.2, -7, 7) : 0;
-            return (
-              <div
-                key={c.id}
-                className={
-                  'as-seat'
-                  + (speaking ? ' is-speaking' : '')
-                  + (listening ? ' is-listening' : '')
-                  + (addressed ? ' is-addressed' : '')
-                  + (aside === i && !focusId ? ' is-aside' : '')
-                  + (d >= 6 ? ' gain' : d <= -6 ? ' loss' : '')
-                }
-                style={{ '--i': i, '--h': c.height, '--tilt': `${tilt}deg` }}
-              >
-                <img className="as-portrait" src={c.img} alt={c.name} draggable="false" />
-                {deltas && d !== 0 && (
-                  <div className={'as-delta ' + (d > 0 ? 'up' : 'down')}>{d > 0 ? `+${d}` : d}</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
+      {/* le premier rang est dessiné dans la scène : il ne reste que la parole */}
+      <div className={`as-front react-${react || 'none'}`}>
         {line && <Caption line={line} />}
         {!line && asking && phase === 'input' && <Caption line={{ member: asking.by, to: 'joueur', fr: asking.fr }} asking />}
-
-        {/* la balustrade drapée, avec le chevalet de chacun */}
-        <div className="as-rail">
-          {CAST.map(c => {
-            const v = conv[c.id];
-            const st = stance(v);
-            return (
-              <div key={c.id} className={`as-plate s-${st}${focusId === c.id ? ' on' : ''}`}>
-                <div className="as-plate-name">{c.name}</div>
-                <div className="as-plate-bar">
-                  <div className="as-plate-fill" style={{ width: `${v}%` }} />
-                  <div className="as-plate-mark" />
-                </div>
-                <div className="as-plate-stance">{stanceLabel(v, c.id)}</div>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* porte d'entrée */}
