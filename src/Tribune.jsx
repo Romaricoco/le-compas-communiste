@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Scene from './tribune/Scene.jsx';
 import { CAST, byId, indexOf, ROUNDS, START, CONVINCED_AT, WIN_AT, stance } from './tribune/cast.js';
-import { fetchVoice, initVoices, speakBrowser, hush } from './tribune/voice.js';
+import { fetchVoice, initVoices, speakBrowser, hush, listVoices, voiceFor, autoVoice, getPick, setPick, clearPicks } from './tribune/voice.js';
 import { createHallAudio } from './tribune/audio.js';
 import { offlineRound, resetOffline } from './tribune/offline.js';
 import './Tribune.css';
@@ -71,6 +71,59 @@ function Caption({ line, asking }) {
   );
 }
 
+
+/* Le navigateur fournit les voix : s'il n'en a qu'une, les six se
+   ressemblent. On montre ce qu'il a et on laisse choisir. */
+function VoixPanel({ onClose }) {
+  const [, force] = useState(0);
+  const voix = listVoices();
+  const fr = voix.filter(v => (v.lang || '').toLowerCase().startsWith('fr'));
+  const autres = voix.filter(v => !(v.lang || '').toLowerCase().startsWith('fr'));
+  const essayer = c => { hush(); speakBrowser(`Camarade, ici ${c.name}. La parole est à toi.`, c); };
+  return (
+    <div className="as-voix" onClick={e => { e.stopPropagation(); }}>
+      <div className="as-voix-head">
+        <span>Distribution des voix</span>
+        <button className="as-btn" onClick={onClose}>Fermer</button>
+      </div>
+      <p className="as-voix-note">
+        {!voix.length
+          ? 'Ton navigateur ne propose aucune voix de synthèse : les répliques s’affichent sans être dites.'
+          : `${voix.length} voix dans ce navigateur, dont ${fr.length} en français. Une voix « réseau » ignore la hauteur : les voix locales rendent mieux.`}
+      </p>
+      {CAST.map(c => {
+        const actuelle = voiceFor(c.id);
+        return (
+          <div className="as-voix-row" key={c.id}>
+            <span className="as-voix-nom">{c.name}</span>
+            <select
+              value={getPick(c.id)}
+              onChange={e => { setPick(c.id, e.target.value); force(n => n + 1); essayer(c); }}
+            >
+              <option value="">Automatique{autoVoice(c.id) ? ` — ${autoVoice(c.id).name}` : ''}</option>
+              {fr.length > 0 && (
+                <optgroup label="Français">
+                  {fr.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name}{v.localService ? '' : ' (réseau)'}</option>)}
+                </optgroup>
+              )}
+              {autres.length > 0 && (
+                <optgroup label="Autres langues (accent garanti)">
+                  {autres.map(v => <option key={v.voiceURI} value={v.voiceURI}>{v.name} — {v.lang}{v.localService ? '' : ' (réseau)'}</option>)}
+                </optgroup>
+              )}
+            </select>
+            <button className="as-btn" onClick={() => essayer(c)}>Écouter</button>
+            <span className="as-voix-cur">{actuelle ? actuelle.name : 'aucune voix'}</span>
+          </div>
+        );
+      })}
+      <div className="as-voix-foot">
+        <button className="as-btn" onClick={() => { clearPicks(); force(n => n + 1); }}>Tout remettre en automatique</button>
+      </div>
+    </div>
+  );
+}
+
 export default function Tribune({ onExit }) {
   // door → input → debate → (input …) → verdict
   const [phase, setPhase] = useState('door');
@@ -88,6 +141,7 @@ export default function Tribune({ onExit }) {
   const [error, setError] = useState(null);
   const [needKey, setNeedKey] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [voixOuvert, setVoixOuvert] = useState(false);
   const [keyInput, setKeyInput] = useState('');
 
   const hallRef = useRef(null);
@@ -339,6 +393,10 @@ export default function Tribune({ onExit }) {
           <div className="as-top-right">
             <span className={convinced >= WIN_AT ? 'ok' : ''}>{convinced}/6 convaincus</span>
             <span className="as-top-need"> · il en faut {WIN_AT}</span>
+            <button
+              className="as-voix-btn"
+              onClick={e => { e.stopPropagation(); initVoices(); setVoixOuvert(true); }}
+            >voix</button>
           </div>
         </header>
       )}
@@ -418,6 +476,7 @@ export default function Tribune({ onExit }) {
         </div>
       )}
 
+      {voixOuvert && <VoixPanel onClose={() => { hush(); setVoixOuvert(false); }} />}
       {phase === 'debate' && <div className="as-skip">toucher l’écran pour passer</div>}
       {onExit && <button className="as-quit" onClick={e => { e.stopPropagation(); onExit(); }}>Quitter ✕</button>}
     </div>
