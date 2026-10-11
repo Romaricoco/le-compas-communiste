@@ -1,6 +1,7 @@
 const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
 
 const CAST = ['esperanza', 'alain', 'felix', 'ana', 'adama', 'roberto'];
+const TONES = ['colere', 'emu', 'rire', 'ironie', 'solennel', 'doute', 'joie', 'chuchote', 'calme'];
 
 const SYSTEM_PROMPT = `Tu écris en direct une séance d'assemblée révolutionnaire, façon soviet : bruyante, passionnée, drôle, exigeante. Le joueur est à la tribune et défend une cause. Au premier rang, six délégués lui répondent ET se répondent entre eux. Ce n'est pas un jury : c'est une discussion vivante où l'on se coupe, se chambre, s'enflamme.
 
@@ -26,7 +27,7 @@ Tout est en français. Les délégués ne connaissent pas le nom du joueur : ils
    - réplique 2 : répond au délégué de la réplique 1, en le nommant (accord, contradiction, moquerie) ;
    - réplique 3 : relance — vers un autre délégué ou vers le joueur.
 3. Chaque réplique : une ou deux phrases parlées, 25 mots maximum, compréhensibles seules. Pas de langue de bois, pas de formule creuse.
-4. "to" : à qui la réplique s'adresse — l'id d'un délégué, ou "joueur".
+4. "to" : à qui la réplique s'adresse — l'id d'un délégué, ou "joueur". "tone" : comment elle est jouée, un seul mot parmi colere, emu, rire, ironie, solennel, doute, joie, chuchote, calme — c'est lui qui règle le jeu du corps à l'écran, choisis-le vraiment.
 5. Environ un tour sur trois, un délégué lance une citation réelle et exacte (Marx, Engels, Lénine, Rosa Luxemburg, Mao, Jaurès, Louise Michel…), courte, criée, au service de l'argument.
 6. Au moins un tour sur deux contient de l'humour : une pique, une moquerie fraternelle, un fou rire. Une assemblée vivante, jamais un tribunal.
 7. Juge l'argument du joueur selon le compas marxiste : remet-il en cause la propriété privée des moyens de production, réduit-il l'exploitation, sert-il les travailleurs contre le capital, est-il internationaliste ? Précis et concret = la salle suit. Vague, creux ou contradictoire = elle décroche.
@@ -36,7 +37,7 @@ Tout est en français. Les délégués ne connaissent pas le nom du joueur : ils
 11. "question" : la dernière relance adressée au joueur, simple et orale, 15 mots max (« Et toi camarade, qui paierait ? »), avec "by" = l'id de celui qui la pose. null si personne ne l'interpelle.
 
 Réponds UNIQUEMENT avec ce JSON :
-{"lines":[{"member":"id","to":"id|joueur","fr":"..."},{"member":"id","to":"id|joueur","fr":"..."},{"member":"id","to":"id|joueur","fr":"..."}],"deltas":{"esperanza":0,"alain":0,"felix":0,"ana":0,"adama":0,"roberto":0},"fx":null,"dida":null,"question":{"by":"id","fr":"..."}}`;
+{"lines":[{"member":"id","to":"id|joueur","tone":"calme","fr":"..."},{"member":"id","to":"id|joueur","tone":"calme","fr":"..."},{"member":"id","to":"id|joueur","tone":"calme","fr":"..."}],"deltas":{"esperanza":0,"alain":0,"felix":0,"ana":0,"adama":0,"roberto":0},"fx":null,"dida":null,"question":{"by":"id","tone":"calme","fr":"..."}}`;
 
 const clampInt = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(Number(v) || 0)));
 
@@ -49,6 +50,7 @@ function sanitize(raw) {
     .map(l => ({
       member: l.member,
       to: CAST.includes(l.to) ? l.to : 'joueur',
+      tone: TONES.includes(l.tone) ? l.tone : 'calme',
       fr: l.fr.trim().slice(0, 240),
     }));
   const deltas = {};
@@ -56,9 +58,9 @@ function sanitize(raw) {
   const fx = ['ovation', 'rire', 'murmure'].includes(raw.fx) ? raw.fx : (raw.fx === 'murmur' ? 'murmure' : null);
   let question = null;
   if (raw.question && typeof raw.question === 'object' && typeof raw.question.fr === 'string' && raw.question.fr.trim()) {
-    question = { by: CAST.includes(raw.question.by) ? raw.question.by : 'felix', fr: raw.question.fr.trim().slice(0, 160) };
+    question = { by: CAST.includes(raw.question.by) ? raw.question.by : 'felix', tone: TONES.includes(raw.question.tone) ? raw.question.tone : 'calme', fr: raw.question.fr.trim().slice(0, 160) };
   } else if (typeof raw.question === 'string' && raw.question.trim()) {
-    question = { by: 'felix', fr: raw.question.trim().slice(0, 160) };
+    question = { by: 'felix', tone: 'calme', fr: raw.question.trim().slice(0, 160) };
   }
   const dida = typeof raw.dida === 'string' && raw.dida.trim() && raw.dida !== 'null' ? raw.dida.trim().slice(0, 100) : null;
   return { lines, deltas, fx, dida, question };

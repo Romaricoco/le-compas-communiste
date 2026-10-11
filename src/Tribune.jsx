@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import SovietHall from './SovietHall.jsx';
+import Scene from './tribune/Scene.jsx';
 import { CAST, byId, indexOf, ROUNDS, START, CONVINCED_AT, WIN_AT, stance } from './tribune/cast.js';
 import { fetchVoice, initVoices, speakBrowser, hush } from './tribune/voice.js';
 import { createHallAudio } from './tribune/audio.js';
+import { offlineRound, resetOffline } from './tribune/offline.js';
 import './Tribune.css';
 
 /* ══════════════════════════════════════════════════════════
@@ -86,6 +87,7 @@ export default function Tribune({ onExit }) {
   const [aside, setAside] = useState(-1);        // un délégué qui glisse un mot à son voisin
   const [error, setError] = useState(null);
   const [needKey, setNeedKey] = useState(false);
+  const [offline, setOffline] = useState(false);
   const [keyInput, setKeyInput] = useState('');
 
   const hallRef = useRef(null);
@@ -94,6 +96,7 @@ export default function Tribune({ onExit }) {
   const convRef = useRef(conv);
   const transcriptRef = useRef([]);
   const skipRef = useRef(null);
+  const offlineRef = useRef(false);
   const deadRef = useRef(false);
 
   useEffect(() => {
@@ -149,6 +152,7 @@ export default function Tribune({ onExit }) {
     p.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=';
     p.play().catch(() => {});
     playerRef.current = p;
+    hallRef.current?.attachAudio(p);
     initVoices();
     audioRef.current?.gavel(3);
     hallRef.current?.murmur();
@@ -166,24 +170,32 @@ export default function Tribune({ onExit }) {
     hallRef.current?.murmur();
 
     let data;
-    try {
-      data = await deliberate({
-        cause: theCause, argument, round: r, rounds: ROUNDS,
-        transcript: transcriptRef.current, convictions: convRef.current,
-      });
-    } catch (err) {
-      const msg = String(err.message || err);
-      setReact('');
-      setError(/401|403|aucune clé|unauthorized/i.test(msg)
-        ? `Clé Mistral refusée ou absente — ${msg.slice(0, 120)}`
-        : `L’assemblée n’a pas pu délibérer : ${msg.slice(0, 140)}`);
-      if (/401|403|aucune clé|unauthorized/i.test(msg)) setNeedKey(true);
-      setAsking(r === 1 ? OPENING : { by: 'felix', fr: 'Reprends, camarade, on ne t’a pas entendu.' });
-      setPhase('input');
-      return;
+    const payload = {
+      cause: theCause, argument, round: r, rounds: ROUNDS,
+      transcript: transcriptRef.current, convictions: convRef.current,
+    };
+    if (offlineRef.current) {
+      data = offlineRound(payload);
+    } else {
+      try {
+        data = await deliberate(payload);
+      } catch (err) {
+        const msg = String(err.message || err);
+        // La séance ne s'arrête pas pour une clé : on bascule sur la
+        // salle hors-ligne et on prévient une fois.
+        offlineRef.current = true;
+        setOffline(true);
+        resetOffline();
+        // pas de clé, pas de réclamation : on ne barre pas la partie avec
+        // un champ à remplir. Le bandeau le dit, et qui a une clé peut
+        // toujours la coller depuis la zone de saisie.
+        data = offlineRound(payload);
+      }
     }
 
-    const urls = await Promise.all(data.lines.map(l => fetchVoice(l.fr, byId(l.member)?.voice)));
+    const urls = offlineRef.current
+      ? data.lines.map(() => null)
+      : await Promise.all(data.lines.map(l => fetchVoice(l.fr, byId(l.member)?.voice)));
     if (deadRef.current) return;
     setReact('');
 
@@ -261,6 +273,7 @@ export default function Tribune({ onExit }) {
     hush();
     setRound(0);
     setCause('');
+    resetOffline();
     setReact('');
     setPlayerLine('');
     const init = Object.fromEntries(CAST.map(c => [c.id, START]));
@@ -302,13 +315,26 @@ export default function Tribune({ onExit }) {
 
   return (
     <div className={`as-stage phase-${phase}`} onClick={phase === 'debate' ? () => skipRef.current?.() : undefined}>
-      <SovietHall ref={hallRef} />
-      <div className="as-shade" />
+      <Scene
+        ref={hallRef}
+        conv={conv}
+        speaker={focusId}
+        to={line?.to}
+        tone={line?.tone}
+        speaking={!!line}
+        phase={phase}
+        deltas={deltas}
+        aside={focusId ? -1 : aside}
+        cause={cause}
+      />
 
       {/* bandeau du haut */}
       {phase !== 'door' && (
         <header className="as-top">
-          <div className="as-top-left">LA TRIBUNE{round > 0 && <> · TOUR {Math.min(round, ROUNDS)}/{ROUNDS}</>}</div>
+          <div className="as-top-left">
+            LA TRIBUNE{round > 0 && <> · TOUR {Math.min(round, ROUNDS)}/{ROUNDS}</>}
+            {offline && <span className="as-offline" title="Aucune clé disponible : la salle siège sur ses propres répliques">· salle hors-ligne</span>}
+          </div>
           {cause && <div className="as-top-cause">« {cause} »</div>}
           <div className="as-top-right">
             <span className={convinced >= WIN_AT ? 'ok' : ''}>{convinced}/6 convaincus</span>
@@ -328,57 +354,10 @@ export default function Tribune({ onExit }) {
 
       {dida && <div className="as-dida">{dida}</div>}
 
-      {/* le premier rang */}
-      <div className={`as-front react-${react || 'none'}${phase === 'verdict' ? (won ? ' end-won' : ' end-lost') : ''}`}>
-        <div className="as-row">
-          {CAST.map((c, i) => {
-            const speaking = focusId === c.id;
-            const listening = focusIdx >= 0 && !speaking;
-            const addressed = line && line.to === c.id;
-            const d = deltas?.[c.id] || 0;
-            const tilt = listening ? clamp((focusIdx - i) * 2.2, -7, 7) : 0;
-            return (
-              <div
-                key={c.id}
-                className={
-                  'as-seat'
-                  + (speaking ? ' is-speaking' : '')
-                  + (listening ? ' is-listening' : '')
-                  + (addressed ? ' is-addressed' : '')
-                  + (aside === i && !focusId ? ' is-aside' : '')
-                  + (d >= 6 ? ' gain' : d <= -6 ? ' loss' : '')
-                }
-                style={{ '--i': i, '--h': c.height, '--tilt': `${tilt}deg` }}
-              >
-                <img className="as-portrait" src={c.img} alt={c.name} draggable="false" />
-                {deltas && d !== 0 && (
-                  <div className={'as-delta ' + (d > 0 ? 'up' : 'down')}>{d > 0 ? `+${d}` : d}</div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
+      {/* le premier rang est dessiné dans la scène : il ne reste que la parole */}
+      <div className={`as-front react-${react || 'none'}`}>
         {line && <Caption line={line} />}
         {!line && asking && phase === 'input' && <Caption line={{ member: asking.by, to: 'joueur', fr: asking.fr }} asking />}
-
-        {/* la balustrade drapée, avec le chevalet de chacun */}
-        <div className="as-rail">
-          {CAST.map(c => {
-            const v = conv[c.id];
-            const st = stance(v);
-            return (
-              <div key={c.id} className={`as-plate s-${st}${focusId === c.id ? ' on' : ''}`}>
-                <div className="as-plate-name">{c.name}</div>
-                <div className="as-plate-bar">
-                  <div className="as-plate-fill" style={{ width: `${v}%` }} />
-                  <div className="as-plate-mark" />
-                </div>
-                <div className="as-plate-stance">{stanceLabel(v, c.id)}</div>
-              </div>
-            );
-          })}
-        </div>
       </div>
 
       {/* porte d'entrée */}
@@ -409,6 +388,12 @@ export default function Tribune({ onExit }) {
             <button className="as-btn as-btn-red" onClick={submit} disabled={text.trim().length < 4}>Parler</button>
           </div>
           {error && <div className="as-error">{error}</div>}
+          {offline && !needKey && (
+            <div className="as-offnote">
+              Aucune clé Mistral valide : la salle siège sur ses propres répliques.
+              <button type="button" className="as-link" onClick={() => setNeedKey(true)}>j’ai une clé</button>
+            </div>
+          )}
           {needKey && (
             <div className="as-key">
               <span>Colle ta clé API Mistral (console.mistral.ai → API Keys, elle reste dans ton navigateur) :</span>
