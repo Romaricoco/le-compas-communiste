@@ -404,3 +404,24 @@
 
 .as-offnote { margin-top: 8px; font-size: 13px; color: #a08b6d; }
 .as-link { background: none; border: 0; padding: 0 0 0 6px; color: var(--red-hi, #c9a86a); font: inherit; text-decoration: underline; cursor: pointer; }
+
+/* ── Distribution des voix ───────────────────────────────── */
+.as-voix-btn { margin-left: 10px; background: none; border: 1px solid rgba(255,210,140,.35); color: #c9a86a; font: inherit; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; padding: 2px 7px; cursor: pointer; }
+.as-voix-btn:hover { border-color: #ffc24a; color: #ffc24a; }
+.as-voix {
+  position: absolute; z-index: 60; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: min(620px, 94vw); max-height: 84vh; overflow: auto;
+  background: #140b09; border: 2px solid #ffc24a; padding: 16px;
+  box-shadow: 0 24px 60px rgba(0,0,0,.7);
+}
+.as-voix-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 13px; letter-spacing: .18em; text-transform: uppercase; color: #ffc24a; }
+.as-voix-note { margin: 10px 0 14px; font-size: 14px; line-height: 1.45; color: #a08b6d; }
+.as-voix-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 8px; align-items: center; margin-bottom: 8px; }
+.as-voix-nom { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: #f4e7c8; }
+.as-voix select { min-width: 0; width: 100%; background: #26140f; color: #f4e7c8; border: 1px solid rgba(244,231,200,.3); padding: 7px; font: inherit; font-size: 14px; }
+.as-voix-cur { grid-column: 2 / -1; font-size: 11px; color: #7d6d58; }
+.as-voix-foot { margin-top: 12px; display: flex; justify-content: flex-end; }
+@media (max-width: 560px) {
+  .as-voix-row { grid-template-columns: 1fr auto; }
+  .as-voix-nom { grid-column: 1 / -1; }
+}

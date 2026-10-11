@@ -40,6 +40,26 @@ export async function fetchVoice(text, voiceId) {
 
 let catalog = [];
 let assigned = new Map();
+/* Choix manuel, par délégué : le navigateur décide de ce qu'il a,
+   l'utilisateur décide de qui parle avec quoi. */
+let pick = {};
+try { pick = JSON.parse(localStorage.getItem('tribune_voix') || '{}') || {}; } catch { pick = {}; }
+
+export function listVoices() { return catalog.slice(); }
+export function voiceFor(id) {
+  if (pick[id]) { const v = catalog.find(x => x.voiceURI === pick[id]); if (v) return v; }
+  return assigned.get(id) || null;
+}
+export function autoVoice(id) { return assigned.get(id) || null; }
+export function getPick(id) { return pick[id] || ''; }
+export function setPick(id, uri) {
+  if (uri) pick[id] = uri; else delete pick[id];
+  try { localStorage.setItem('tribune_voix', JSON.stringify(pick)); } catch { /* rien */ }
+}
+export function clearPicks() {
+  pick = {};
+  try { localStorage.removeItem('tribune_voix'); } catch { /* rien */ }
+}
 
 export function initVoices() {
   if (!('speechSynthesis' in window)) return;
@@ -83,10 +103,6 @@ function assign() {
   }
 }
 
-export function voiceReport() {
-  return CAST.map(c => ({ id: c.id, voix: assigned.get(c.id)?.name || null }));
-}
-
 /* Fait parler un délégué avec la voix du navigateur. Résout à la fin
    de la phrase (ou au bout d'un délai de sécurité). */
 export function speakBrowser(text, member) {
@@ -94,7 +110,7 @@ export function speakBrowser(text, member) {
     try {
       if (!('speechSynthesis' in window) || !text) return resolve(false);
       const u = new SpeechSynthesisUtterance(text);
-      const v = member ? assigned.get(member.id) : null;
+      const v = member ? voiceFor(member.id) : null;
       if (v) u.voice = v;
       // si la voix n'est pas française, c'est qu'il n'y avait pas d'homme
       // en français : on la laisse lire avec son accent plutôt que de
