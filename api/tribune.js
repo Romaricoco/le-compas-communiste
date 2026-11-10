@@ -1,4 +1,4 @@
-const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+import { callLLM, diagnoseProviders } from './_llm.js';
 
 const CAST = ['esperanza', 'alain', 'felix', 'ana', 'adama', 'roberto'];
 const TONES = ['colere', 'emu', 'rire', 'ironie', 'solennel', 'doute', 'joie', 'chuchote', 'calme'];
@@ -75,26 +75,7 @@ export default async function handler(req, res) {
 
   // GET = diagnostic Mistral
   if (req.method === 'GET') {
-    const key = process.env.MISTRAL_API_KEY;
-    if (!key) {
-      return res.status(200).json({
-        cle_configuree: false,
-        message: 'MISTRAL_API_KEY est absente de Vercel. Va dans Settings → Environment Variables et ajoute-la.',
-      });
-    }
-    try {
-      const r = await fetch('https://api.mistral.ai/v1/models', { headers: { 'Authorization': `Bearer ${key}` } });
-      if (!r.ok) {
-        return res.status(200).json({
-          cle_configuree: true,
-          cle_valide: false,
-          message: `Mistral refuse la clé (HTTP ${r.status}). Régénère-la dans ton compte Mistral et remplace-la dans Vercel.`,
-        });
-      }
-      return res.status(200).json({ cle_configuree: true, cle_valide: true, message: 'Tout est en ordre côté Mistral.' });
-    } catch (err) {
-      return res.status(200).json({ cle_configuree: true, erreur: String(err).slice(0, 200) });
-    }
+    return res.status(200).json(await diagnoseProviders());
   }
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
@@ -104,9 +85,10 @@ export default async function handler(req, res) {
 
   // La clé collée dans l'app (en-tête) prime sur celle de Vercel
   const localKey = req.headers['x-mistral-key'];
-  const apiKey = localKey || process.env.MISTRAL_API_KEY;
-  const keySource = localKey ? 'clé collée dans l’app' : 'clé du site (Vercel)';
-  if (!apiKey) return res.status(500).json({ error: 'Aucune clé Mistral : ni sur Vercel (MISTRAL_API_KEY), ni collée dans l’app' });
+  const keySource = localKey ? 'clé collée dans l’app' : 'clés du site (Vercel)';
+  if (!localKey && !process.env.MISTRAL_API_KEY && !process.env.GROQ_API_KEY) {
+    return res.status(500).json({ error: 'Aucune clé : ni sur Vercel (MISTRAL_API_KEY / GROQ_API_KEY), ni collée dans l’app' });
+  }
 
   const transcriptArr = Array.isArray(transcript) ? transcript : [];
   const history = transcriptArr.slice(-15).map(t => `${t.by === 'joueur' ? 'JOUEUR' : t.by} : ${t.fr}`).join('\n');
@@ -125,36 +107,20 @@ LE JOUEUR, À LA TRIBUNE, DIT MAINTENANT :
 « ${String(argument).slice(0, 600)} »`;
 
   try {
-    let response;
-    // les clés gratuites Mistral sont limitées en débit : on retente une fois
-    for (let attempt = 0; attempt < 2; attempt++) {
-      response = await fetch(MISTRAL_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: 'mistral-large-latest',
-          messages: [
-            { role: 'system', content: SYSTEM_PROMPT },
-            { role: 'user', content: userContent },
-          ],
-          temperature: 0.75,
-          response_format: { type: 'json_object' },
-        }),
-      });
-      if (response.status !== 429) break;
-      await new Promise(r => setTimeout(r, 1600));
-    }
-
-    if (!response.ok) {
-      const detail = await response.text().catch(() => '');
-      return res.status(response.status).json({
-        error: `Mistral a répondu ${response.status} avec la ${keySource}`,
-        detail: detail.slice(0, 200),
+    let raw;
+    try {
+      raw = await callLLM([
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: userContent },
+      ], { temperature: 0.75, mistralKey: localKey || process.env.MISTRAL_API_KEY });
+    } catch (llmErr) {
+      return res.status(502).json({
+        error: `Le modèle a échoué avec la ${keySource}`,
+        detail: String(llmErr.message || llmErr).slice(0, 200),
       });
     }
 
-    const data = await response.json();
-    const parsed = sanitize(JSON.parse(data.choices[0].message.content));
+    const parsed = sanitize(raw);
     if (!parsed.lines.length) return res.status(502).json({ error: 'L’assemblée a bafouillé (réponse vide), renvoie ton argument.' });
     return res.status(200).json(parsed);
   } catch (err) {

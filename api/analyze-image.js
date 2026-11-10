@@ -1,3 +1,5 @@
+import { callLLM } from './_llm.js';
+
 const SYSTEM_PROMPT = `Tu es un outil d'analyse marxiste rigoureux et historiquement informé. On te donne une image à contenu politique, économique ou idéologique.
 Tu dois l'évaluer selon 4 critères et répondre "communist" ou "capitalist" pour chacun.
 
@@ -44,33 +46,17 @@ export default async function handler(req, res) {
   const { imageBase64, mimeType } = req.body;
   if (!imageBase64) return res.status(400).json({ error: 'Image manquante' });
 
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
-
   try {
-    const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'pixtral-12b-2409',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          {
-            role: 'user',
-            content: [
-              { type: 'image_url', image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}` } },
-              { type: 'text', text: 'Analyse le contenu politique et idéologique de cette image selon les 4 critères marxistes.' },
-            ],
-          },
+    const result = await callLLM([
+      { role: 'system', content: SYSTEM_PROMPT },
+      {
+        role: 'user',
+        content: [
+          { type: 'image_url', image_url: { url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}` } },
+          { type: 'text', text: 'Analyse le contenu politique et idéologique de cette image selon les 4 critères marxistes.' },
         ],
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-      }),
-    });
-
-    if (!response.ok) throw new Error(`Mistral API ${response.status}: ${await response.text()}`);
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
+      },
+    ], { temperature: 0.2 });
     const etatVal = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital;
     res.status(200).json({ ...result, rapport_etat_capital: etatVal });
   } catch (err) {

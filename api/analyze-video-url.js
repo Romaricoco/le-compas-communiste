@@ -1,4 +1,4 @@
-const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+import { callLLM } from './_llm.js';
 
 const INNERTUBE_CLIENT_VERSION = '20.10.38';
 const INNERTUBE_USER_AGENT = `com.google.android.youtube/${INNERTUBE_CLIENT_VERSION} (Linux; U; Android 14)`;
@@ -155,16 +155,6 @@ POUR LES VIDÉOS : si tu as accès au titre ou à la transcription, appuie-toi E
 Réponds UNIQUEMENT en JSON valide, sans markdown, sans explication :
 {"abolition_propriete_privee":"capitalist|communist","egalite_travail":"capitalist|communist","rapport_etat_capital":"capitalist|communist","horizon_mondial":"capitalist|communist","justification":"une phrase analytique précise fondée sur le contenu réel, sans étiquette péjorative"}`;
 
-async function callMistral(apiKey, model, messages) {
-  const response = await fetch(MISTRAL_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body: JSON.stringify({ model, messages, temperature: 0.2, response_format: { type: 'json_object' } }),
-  });
-  if (!response.ok) throw new Error(`Mistral API ${response.status}: ${await response.text()}`);
-  const data = await response.json();
-  return JSON.parse(data.choices[0].message.content);
-}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -181,8 +171,6 @@ export default async function handler(req, res) {
   if (!match) return res.status(400).json({ error: 'URL YouTube non reconnue.' });
 
   const videoId = match[1];
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
 
   try {
     // 1. Titre via oEmbed
@@ -214,7 +202,7 @@ export default async function handler(req, res) {
         `Transcription (extrait) : ${transcriptText}`,
       ].filter(Boolean).join('\n');
 
-      const result = await callMistral(apiKey, 'mistral-large-latest', [
+      const result = await callLLM([
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `Analyse cette vidéo YouTube :\n${contextText}` },
       ]);
@@ -243,7 +231,7 @@ export default async function handler(req, res) {
       ? `Titre de la vidéo : "${videoTitle}"${videoAuthor ? ` — par ${videoAuthor}` : ''}. `
       : '';
 
-    const result = await callMistral(apiKey, 'pixtral-12b-2409', [
+    const result = await callLLM([
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',

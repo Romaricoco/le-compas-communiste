@@ -1,4 +1,4 @@
-const MISTRAL_URL = 'https://api.mistral.ai/v1/chat/completions';
+import { callLLM, diagnoseProviders } from './_llm.js';
 
 const SYSTEM_PROMPT = `Tu es un outil d'analyse marxiste rigoureux et historiquement informé. On te donne un événement, une loi, une mesure ou une idée politique/économique.
 Tu dois l'évaluer selon 4 critères et répondre "communist" ou "capitalist" pour chacun.
@@ -41,26 +41,7 @@ export default async function handler(req, res) {
   // GET = diagnostic : ouvre /api/analyze dans le navigateur pour savoir
   // si la clé Mistral est configurée et valide sur Vercel.
   if (req.method === 'GET') {
-    const key = process.env.MISTRAL_API_KEY;
-    if (!key) {
-      return res.status(200).json({
-        cle_configuree: false,
-        message: 'MISTRAL_API_KEY est absente de Vercel. Va dans Settings → Environment Variables et ajoute-la, puis redéploie.',
-      });
-    }
-    try {
-      const r = await fetch('https://api.mistral.ai/v1/models', { headers: { 'Authorization': `Bearer ${key}` } });
-      if (!r.ok) {
-        return res.status(200).json({
-          cle_configuree: true,
-          cle_valide: false,
-          message: `Mistral refuse la clé (HTTP ${r.status}). Régénère-la sur console.mistral.ai et remplace-la dans Vercel.`,
-        });
-      }
-      return res.status(200).json({ cle_configuree: true, cle_valide: true, message: 'Clé Mistral en ordre.' });
-    } catch (err) {
-      return res.status(200).json({ cle_configuree: true, erreur: String(err).slice(0, 200) });
-    }
+    return res.status(200).json(await diagnoseProviders());
   }
 
   if (req.method !== 'POST') return res.status(405).json({ error: 'Méthode non autorisée' });
@@ -68,27 +49,11 @@ export default async function handler(req, res) {
   const { title } = req.body || {};
   if (!title) return res.status(400).json({ error: 'Titre manquant' });
 
-  const apiKey = process.env.MISTRAL_API_KEY;
-  if (!apiKey) return res.status(500).json({ error: 'MISTRAL_API_KEY non configurée' });
-
   try {
-    const response = await fetch(MISTRAL_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: 'mistral-large-latest',
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          { role: 'user', content: `Analyse : ${title}` },
-        ],
-        temperature: 0.4,
-        response_format: { type: 'json_object' },
-      }),
-    });
-
-    if (!response.ok) throw new Error(`Mistral API ${response.status}: ${await response.text()}`);
-    const data = await response.json();
-    const result = JSON.parse(data.choices[0].message.content);
+    const result = await callLLM([
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: `Analyse : ${title}` },
+    ], { temperature: 0.4 });
     // find État value by trying all known key variants, then by exclusion
     const KNOWN_KEYS = ['abolition_propriete_privee', 'egalite_travail', 'horizon_mondial', 'justification', 'hasTranscript'];
     const etatVal = result.rapport_etat_capital || result.dissolution_etat || result.etat || result.rapport_etat || result.etat_capital
