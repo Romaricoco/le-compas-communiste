@@ -29,7 +29,93 @@ function parseTranscriptXml(xml) {
   return segments.join(' ').replace(/\s+/g, ' ').trim();
 }
 
-async function fetchYouTubeTranscript(videoId) {
+// Les sous-titres au format WebVTT (relais Invidious) arrivent en "rolling captions" :
+// chaque bloc répète la ligne précédente. On nettoie les balises et les doublons.
+export function parseVtt(vtt) {
+  const out = [];
+  let last = '';
+  for (const rawLine of vtt.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line) continue;
+    if (line === 'WEBVTT' || line.startsWith('Kind:') || line.startsWith('Language:')) continue;
+    if (line.includes('-->')) continue;
+    if (/^\d+$/.test(line)) continue;
+    const clean = line
+      .replace(/<\d{2}:\d{2}:\d{2}\.\d{3}>/g, '')
+      .replace(/<\/?c[^>]*>/g, '')
+      .replace(/<[^>]*>/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (!clean || clean === last) continue;
+    out.push(clean);
+    last = clean;
+  }
+  return out.join(' ');
+}
+
+// Dernier recours : un relais Invidious public va chercher les sous-titres depuis
+// SON adresse IP. Indispensable depuis Vercel, dont les IP de datacenter sont
+// refusées par YouTube (playability=LOGIN_REQUIRED).
+export async function fetchViaInvidious(videoId) {
+  let hosts = [];
+  try {
+    const listResp = await fetch('https://api.invidious.io/instances.json?pretty=0', {
+      headers: { 'User-Agent': SCRAPER_USER_AGENT },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (listResp.ok) {
+      const list = await listResp.json();
+      hosts = list
+        .filter(([, info]) => info && info.type === 'https' && info.api === true)
+        .map(([host]) => host);
+    }
+  } catch (e) {
+    console.log('[transcript] invidious list error:', e.message);
+  }
+  // Repli si l'annuaire est injoignable
+  for (const fallback of ['yt.chocolatemoo53.com']) {
+    if (!hosts.includes(fallback)) hosts.push(fallback);
+  }
+  console.log('[transcript] invidious hosts:', hosts.join(', ') || '(aucun)');
+
+  for (const host of hosts.slice(0, 4)) {
+    try {
+      const listUrl = `https://${host}/api/v1/captions/${videoId}`;
+      const resp = await fetch(listUrl, {
+        headers: { 'User-Agent': SCRAPER_USER_AGENT },
+        signal: AbortSignal.timeout(12000),
+      });
+      if (!resp.ok) { console.log(`[transcript] invidious ${host}: HTTP ${resp.status}`); continue; }
+      const data = await resp.json();
+      const captions = data?.captions;
+      if (!captions?.length) { console.log(`[transcript] invidious ${host}: aucune piste`); continue; }
+      // Piste auto-générée d'abord : sur ces vidéos la piste "manuelle" ne contient
+      // souvent que le carton de titre, alors que l'auto-générée a tout le discours.
+      const auto = captions.filter(c => /auto-generated|automatique/i.test(c.label || ''));
+      const ordered = [...auto, ...captions.filter(c => !auto.includes(c))];
+      let best = '';
+      for (const cap of ordered) {
+        const capUrl = cap.url?.startsWith('http') ? cap.url : `https://${host}${cap.url}`;
+        const capResp = await fetch(capUrl, {
+          headers: { 'User-Agent': SCRAPER_USER_AGENT },
+          signal: AbortSignal.timeout(25000),
+        });
+        if (!capResp.ok) continue;
+        const vtt = await capResp.text();
+        const parsed = parseVtt(vtt);
+        console.log(`[transcript] invidious ${host}: ${cap.label} vtt=${vtt.length} parsed=${parsed.length}`);
+        if (parsed.length > best.length) best = parsed;
+        if (best.length > 2000) return best;
+      }
+      if (best.length > 200) return best;
+    } catch (e) {
+      console.log(`[transcript] invidious ${host} error:`, e.message);
+    }
+  }
+  return '';
+}
+
+async function fetchYouTubeDirect(videoId) {
   // Essayer plusieurs clients Innertube — certains sont moins bloqués depuis les IPs cloud
   const clients = [
     {
@@ -119,7 +205,16 @@ async function fetchYouTubeTranscript(videoId) {
   } catch (e) {
     console.log('[transcript] web page error:', e.message);
   }
+
   return '';
+}
+
+// Méthodes directes d'abord (rapides, marchent en local), puis relais Invidious.
+// Le relais est appelé ICI pour couvrir tous les `return ''` des méthodes directes.
+async function fetchYouTubeTranscript(videoId) {
+  const direct = await fetchYouTubeDirect(videoId);
+  if (direct) return direct;
+  return await fetchViaInvidious(videoId);
 }
 
 const SYSTEM_PROMPT = `Tu es un outil d'analyse marxiste rigoureux et historiquement informé. On te donne un événement, une loi, une mesure, une idée politique/économique, ou le contenu d'une vidéo YouTube (titre, transcription et/ou miniatures).
